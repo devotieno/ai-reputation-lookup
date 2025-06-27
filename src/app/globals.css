@@ -1,26 +1,405 @@
-@import "tailwindcss";
+/* Tailwind base styles */
+@import "tailwindcss/preflight";
+@import "tailwindcss/utilities";
 
+/* Custom global styles - optimized for performance */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --primary: #8b5cf6;
+  --primary-dark: #7c3aed;
+  --primary-light: #a78bfa;
+  --primary-glow: rgba(139, 92, 246, 0.35);
+  
+  --bg-dark: #111827;
+  --bg-darker: #030712;
+  --bg-light: #1f2937;
+  
+  --text-light: #f9fafb;
+  --text-dimmed: #9ca3af;
+  
+  --danger: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+  
+  --glass-bg: rgba(17, 24, 39, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: rgba(0, 0, 0, 0.25);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.dark {
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Optimized body with hardware acceleration */
+body {
+  background: radial-gradient(circle at top right, var(--bg-light), var(--bg-dark), var(--bg-darker));
+  color: var(--text-light);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  transform: translateZ(0); /* Force hardware acceleration */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Optimized scrollbar for dark mode */
+::-webkit-scrollbar {
+  width: 6px;
+  background: rgba(15, 23, 42, 0.3);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.6);
+}
+
+/* Selection color */
+::selection {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* Headings with modern styling */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+/* Modern link styling */
+a {
+  color: var(--primary-light);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  position: relative;
+}
+a:hover {
+  color: white;
+}
+
+/* Modern buttons with hover effects */
+button {
+  font-family: inherit;
+  font-weight: 600;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+button::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+/* Glass morphism elements */
+.glass-panel {
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+.glass-input {
+  background: rgba(17, 24, 39, 0.4);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  padding: 12px 16px;
+  transition: all 0.3s ease;
+}
+
+.glass-input:focus {
+  background: rgba(17, 24, 39, 0.6);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+/* Modern form elements */
+input, textarea, select {
+  background-color: rgba(31, 41, 55, 0.5);
+  border: 1px solid rgba(75, 85, 99, 0.4);
+  color: white;
+  border-radius: 8px;
+  padding: 10px 16px;
+  transition: all 0.2s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+  outline: none;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(to right, var(--primary), var(--primary-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Card styling */
+.dark-card {
+  background-color: rgba(17, 24, 39, 0.8);
+  border-radius: 12px;
+  border: 1px solid rgba(55, 65, 81, 0.5);
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.dark-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* Button styles */
+.btn-primary {
+  background-color: var(--primary);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-dark);
+  box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.btn-secondary {
+  background-color: rgba(31, 41, 55, 0.8);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  border: 1px solid rgba(75, 85, 99, 0.4);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background-color: rgba(55, 65, 81, 0.8);
+  border-color: var(--primary);
+}
+
+/* Animated background gradient */
+.animated-bg {
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+button:hover::after {
+  opacity: 1;
+  pointer-events: none;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+/* Glass-morphism inputs */
+input, textarea, select {
+  background: rgba(30, 41, 59, 0.5);
+  color: var(--text-light);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+/* Modernized details/summary for report sections */
+details {
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  margin-top: 0.75rem;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  transition: all 0.2s ease;
+}
+
+details:hover {
+  border-color: rgba(71, 85, 105, 0.6);
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary-light);
+  padding: 0.25rem 0;
+  outline: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+summary::after {
+  content: '▼';
+  font-size: 0.75em;
+  transition: transform 0.2s;
+}
+
+details[open] summary::after {
+  transform: rotate(180deg);
+}
+
+/* Animated loader */
+.loader {
+  position: relative;
+  width: 60px;
+  height: 60px;
+}
+
+.loader:before,
+.loader:after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.loader:before {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 3px solid var(--primary-light);
+  animation-delay: -0.5s;
+}
+
+.loader:after {
+  top: 10px;
+  left: 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+  border: 3px solid var(--primary);
+  opacity: 0.7;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  50% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(0.6); opacity: 1; }
+}
+
+/* Card styling for content blocks */
+.card {
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+}
+
+.card:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+/* Custom glassmorphism panel */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Performance optimizations for better UI responsiveness */
+
+/* Optimize button interactions for instant feedback */
+button:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Reduce expensive operations during interactions */
+input:focus, 
+textarea:focus,
+button:hover,
+.glass-input:focus {
+  will-change: transform, opacity;
+}
+
+/* Hardware acceleration for smooth transitions */
+.glass-panel,
+.dark-card,
+button,
+input {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Optimize hover states for instant response */
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Disable expensive transitions on disabled elements */
+button:disabled {
+  transition: none;
+  cursor: not-allowed;
+}
+
+/* Optimize form input transitions */
+.glass-input {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Reduce re-paint operations */
+* {
+  box-sizing: border-box;
+}
+
+/* Optimized motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

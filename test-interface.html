@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test X.com Functionality</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: white; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .form-group { margin: 15px 0; }
+        label { display: block; margin-bottom: 5px; }
+        input, button { padding: 10px; margin: 5px 0; width: 300px; }
+        button { background: #0066cc; color: white; border: none; cursor: pointer; }
+        .results { background: #333; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .loading { color: #ffaa00; }
+        .error { color: #ff6666; }
+        .success { color: #66ff66; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test X.com Functionality</h1>
+        
+        <div class="form-group">
+            <label>Name:</label>
+            <input type="text" id="name" value="Brian Otieno" />
+        </div>
+        
+        <div class="form-group">
+            <label>Twitter/X Handle:</label>
+            <input type="text" id="twitter" value="@BrianOt61224764" />
+        </div>
+        
+        <button onclick="testSubmission()">Test Submission</button>
+        <button onclick="checkResults()">Check Latest Results</button>
+        <button onclick="processJobs()">Process Jobs</button>
+        
+        <div id="results" class="results">
+            <h3>Results:</h3>
+            <div id="output">Ready to test...</div>
+        </div>
+    </div>
+
+    <script>
+        let currentUserId = null;
+        
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'loading' ? 'loading' : '';
+            output.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        async function testSubmission() {
+            const name = document.getElementById('name').value;
+            const twitter = document.getElementById('twitter').value;
+            
+            log('Submitting test request...', 'loading');
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/submitUserInput', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        twitter: twitter
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    currentUserId = data.userId;
+                    log(`✓ Submission successful! User ID: ${data.userId}`, 'success');
+                    log('Jobs queued. You can check results in a few moments.', 'info');
+                    
+                    // Auto-start checking results
+                    setTimeout(() => checkResults(), 5000);
+                } else {
+                    log(`✗ Submission failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                log(`✗ Network error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkResults() {
+            if (!currentUserId) {
+                log('No current user ID. Submit a request first.', 'error');
+                return;
+            }
+            
+            log('Checking for analysis results...', 'loading');
+            
+            try {
+                const response = await fetch(`http://localhost:3000/api/getAnalysisResults?userId=${currentUserId}`);
+                const data = await response.json();
+                
+                if (response.ok && data.results) {
+                    log('✓ Results found!', 'success');
+                    
+                    // Check each category for platforms analyzed
+                    const categories = Object.keys(data.results);
+                    let hasTwitterData = false;
+                    
+                    categories.forEach(category => {
+                        const categoryData = data.results[category];
+                        if (categoryData.platforms && categoryData.platforms.length > 0) {
+                            log(`${category}: Sources analyzed - ${categoryData.platforms.join(', ')}`, 'info');
+                            if (categoryData.platforms.some(p => p.toLowerCase().includes('twitter') || p.toLowerCase().includes('x ('))) {
+                                hasTwitterData = true;
+                            }
+                        }
+                        
+                        // Show summary for first few categories
+                        if (categoryData.summary && categoryData.summary !== "No data available for analysis.") {
+                            log(`${category} summary: ${categoryData.summary.substring(0, 100)}...`, 'info');
+                        }
+                    });
+                    
+                    if (hasTwitterData) {
+                        log('✓ X (Twitter) data was found and analyzed!', 'success');
+                    } else {
+                        log('⚠ No X (Twitter) data found in results', 'error');
+                    }
+                    
+                } else if (response.ok && !data.results) {
+                    log('⏳ No results yet, still processing...', 'loading');
+                } else {
+                    log(`✗ Error: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`✗ Error checking results: ${error.message}`, 'error');
+            }
+        }
+        
+        async function processJobs() {
+            log('Triggering job processing...', 'loading');
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/processJobs');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('✓ Job processing triggered', 'success');
+                    log(`Status: ${JSON.stringify(data)}`, 'info');
+                    
+                    // Check for results shortly after processing
+                    if (currentUserId) {
+                        setTimeout(() => checkResults(), 3000);
+                    }
+                } else {
+                    log(`✗ Job processing failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                log(`✗ Error triggering jobs: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-refresh results every 10 seconds if we have a user ID
+        setInterval(() => {
+            if (currentUserId) {
+                checkResults();
+            }
+        }, 10000);
+    </script>
+</body>
+</html>

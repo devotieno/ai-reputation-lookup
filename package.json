@@ -6,22 +6,45 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "process-jobs": "node scripts/process-jobs.js",
+    "check-stuck-jobs": "node scripts/check-stuck-jobs.js",
+    "process-jobs-cron": "node -e \"setInterval(() => require('./scripts/process-jobs'), 60000)\"",
+    "dev-with-jobs": "concurrently \"next dev\" \"npm run process-jobs-cron\"",
+    "transform-modules": "node scripts/transform-modules.js",
+    "prepare": "npm install dotenv firebase-admin && npm run transform-modules"
   },
   "dependencies": {
+    "@google-cloud/vision": "^5.2.0",
+    "@next-auth/firebase-adapter": "^2.0.1",
+    "dotenv": "^16.5.0",
+    "firebase": "^11.9.1",
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.3.2",
+    "formidable": "^3.5.4",
+    "framer-motion": "^12.19.1",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.1",
+    "next": "15.3.4",
+    "next-auth": "^4.24.11",
+    "nodemailer": "^6.10.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "next": "15.3.4"
+    "react-icons": "^5.5.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4.1.10",
+    "@types/formidable": "^3.4.5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
-    "@eslint/eslintrc": "^3"
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.10",
+    "typescript": "^5"
   }
 }
