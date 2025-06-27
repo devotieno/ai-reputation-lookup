@@ -1,8 +1,10 @@
 {
-  "cron": [
-    {
-      "path": "/api/processJobs",
-      "schedule": "*/5 * * * *"
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
     }
-  ]
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
