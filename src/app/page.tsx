@@ -75,14 +75,14 @@ export default function HomePage() {
     };
   }, []);
 
-  // Optimized polling function with better performance and error handling
+  // Fast polling function for quick results
   const pollForResults = useCallback(async (userId: string) => {
     if (isPolling) return; // Prevent multiple polling instances
     
     setIsPolling(true);
     let attempts = 0;
-    const maxAttempts = 120; // Poll for up to 16 minutes (120 × 8s)
-    const pollInterval = 8000; // 8 seconds between polls
+    const maxAttempts = 40; // Reduced to 40 attempts (2 minutes total)
+    const pollInterval = 3000; // 3 seconds between polls
 
     const poll = async () => {
       attempts++;
@@ -98,7 +98,7 @@ export default function HomePage() {
         
         console.log("Polling results:", results);
 
-        // Check if we have analysis results for any of the 8 categories
+        // Check if we have ANY analysis results (even partial)
         const hasResults = results && 
           Object.keys(results).length > 0 && 
           Object.keys(results).some(categoryName => {
@@ -113,8 +113,11 @@ export default function HomePage() {
             );
           });
 
-        if (hasResults) {
-          console.log("Analysis complete, setting results");
+        // Show partial results after 6 attempts (18 seconds) if we have any data
+        const hasPartialResults = attempts >= 6 && results && Object.keys(results).length > 0;
+
+        if (hasResults || hasPartialResults) {
+          console.log(hasPartialResults ? "Showing partial results" : "Analysis complete, setting results");
           setAnalysisResults(results);
           setLoading(false);
           setStep('results');
@@ -122,8 +125,8 @@ export default function HomePage() {
           return; // Exit polling
         } 
         
-        // Trigger job processing every 10 attempts (80 seconds) to ensure jobs are being processed
-        if (attempts % 10 === 0) {
+        // Trigger job processing every 5 attempts (15 seconds) to ensure jobs are being processed
+        if (attempts % 5 === 0) {
           console.log(`Triggering job processing at attempt ${attempts}`);
           try {
             await fetch("/api/processJobs", {
@@ -199,6 +202,18 @@ export default function HomePage() {
 
       // Jobs are now automatically queued by submitUserInput API based on provided platform handles
       console.log(`User input submitted with ID: ${userId}. Jobs queued for provided platforms only.`);
+
+      // Immediately trigger job processing for faster results
+      try {
+        console.log("Triggering immediate job processing for current user...");
+        await fetch(`/api/processJobs?userId=${userId}`, {
+          method: "GET",
+          cache: 'no-store'
+        });
+        console.log("Job processing triggered successfully");
+      } catch (error) {
+        console.warn("Failed to trigger immediate job processing:", error);
+      }
 
       // Start polling for results
       pollForResults(userId);
@@ -283,23 +298,7 @@ export default function HomePage() {
                 <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-purple-600">
                   AI Reputation Lookup
                 </h1>
-                <p className="text-xl text-gray-300 mb-6 max-w-3xl">
-                  Comprehensive AI-powered reputation analysis with two access modes: Public analysis using social media handles/URLs, or deeper connected analysis when you sign in and link your accounts.
-                </p>
-                
-                <div className="flex flex-wrap gap-3 mb-8">
-                  {[
-                    { name: "Public Analysis", icon: <FaGlobe /> },
-                    { name: "Connected Analysis", icon: <FaShieldAlt /> },
-                    { name: "AI-Powered Insights", icon: <FaRobot /> },
-                    { name: "Multi-Platform Data", icon: <FaChartBar /> },
-                  ].map((tag) => (
-                    <span key={tag.name} className="px-3 py-1.5 bg-gray-800/50 border border-gray-700 rounded-full text-sm text-gray-300 flex items-center">
-                      <span className="mr-1.5">{tag.icon}</span>
-                      {tag.name}
-                    </span>
-                  ))}
-                </div>
+                {/* Removed subtitle and feature tags for a cleaner UI */}
               </div>
             </div>
             
@@ -316,31 +315,7 @@ export default function HomePage() {
               <div className="mt-12">
                 <OAuthConnect />
               </div>
-            ) : (
-              <div className="mt-12">
-                <div className="glass-panel p-6 text-center">
-                  <h3 className="text-xl font-semibold mb-3 text-purple-300">Want Deeper Analysis?</h3>
-                  <p className="text-gray-300 mb-4">
-                    Sign in and connect your social media accounts for comprehensive analysis with full content access, 
-                    bypassing scraping limitations and providing more detailed insights.
-                  </p>
-                  <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-400">
-                    <div className="flex items-center">
-                      <FaShieldAlt className="text-purple-400 mr-2" />
-                      <span>Deeper content analysis</span>
-                    </div>
-                    <div className="flex items-center">
-                      <FaUserCheck className="text-green-400 mr-2" />
-                      <span>No scraping limitations</span>
-                    </div>
-                    <div className="flex items-center">
-                      <FaChartBar className="text-blue-400 mr-2" />
-                      <span>Enhanced insights</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            ) : null}
         </div>
       )}
       
@@ -399,10 +374,7 @@ export default function HomePage() {
                     // Show a consolidated overview summary
                     <div className="text-gray-300">
                       <p className="mb-3">
-                        {session 
-                          ? "Connected analysis completed with deeper access to account data across multiple platforms and sources."
-                          : "Public analysis completed using publicly available data across multiple platforms and sources."
-                        }
+                        Analysis completed using publicly available data across multiple platforms and sources to provide comprehensive reputation insights.
                       </p>
                       {Object.keys(analysisResults).length > 0 && (
                         <div className="flex items-center justify-between text-sm">
@@ -433,9 +405,40 @@ export default function HomePage() {
                     {CATEGORY_LABELS[categoryName] || categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}
                   </h3>
                   
-                  <div className="mb-4 text-gray-300">
-                    {categoryData?.summary || "No analysis available for this category."}
-                  </div>
+                  {/* Score Display */}
+                  {categoryData?.score && (
+                    <div className="mb-4 flex items-center">
+                      <span className="text-sm text-gray-400 mr-3">Score:</span>
+                      <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                        categoryData.score >= 80 ? 'bg-green-900/50 text-green-300' :
+                        categoryData.score >= 60 ? 'bg-yellow-900/50 text-yellow-300' :
+                        'bg-red-900/50 text-red-300'
+                      }`}>
+                        {categoryData.score}/100
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Detailed Narrative Analysis */}
+                  {categoryData?.narrative ? (
+                    <div className="mb-6">
+                      <div className="prose prose-invert max-w-none">
+                        <div 
+                          className="text-gray-300 leading-relaxed"
+                          dangerouslySetInnerHTML={{ 
+                            __html: categoryData.narrative
+                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+                              .replace(/## (.*?)$/gm, '<h3 class="text-xl font-semibold text-cyan-300 mb-3 mt-6">$1</h3>')
+                              .replace(/\n/g, '<br/>')
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-4 text-gray-300">
+                      {categoryData?.summary || "No analysis available for this category."}
+                    </div>
+                  )}
                   
                   {/* Show platforms analyzed for this category */}
                   {categoryData?.platforms && categoryData.platforms.length > 0 && (
@@ -443,12 +446,87 @@ export default function HomePage() {
                       <span className="font-medium">Sources analyzed:</span> {categoryData.platforms.join(', ')}
                     </div>
                   )}
+
+                  {/* Evidence with Sources */}
+                  {categoryData?.evidenceWithSources && categoryData.evidenceWithSources.length > 0 && (
+                    <details className="mt-4 mb-6">
+                      <summary className="cursor-pointer text-blue-400 font-medium flex items-center">
+                        <FaInfoCircle className="inline mr-2" />
+                        View Evidence ({categoryData.evidenceWithSources.length} items)
+                      </summary>
+                      <div className="mt-3 space-y-3 pl-4 border-l-2 border-blue-900/50">
+                        {categoryData.evidenceWithSources.slice(0, 5).map((evidence: any, i: number) => (
+                          <div key={i} className="bg-slate-900/30 border border-slate-700/50 p-4 rounded-lg">
+                            <blockquote className="text-gray-300 italic mb-3 pl-3 border-l-2 border-blue-500">
+                              {evidence.quote}
+                            </blockquote>
+                            <div className="text-xs text-gray-400 grid grid-cols-2 gap-2">
+                              <div><span className="font-medium">Platform:</span> {evidence.platform}</div>
+                              <div><span className="font-medium">Date:</span> {evidence.date}</div>
+                              <div><span className="font-medium">Author:</span> {evidence.author}</div>
+                              {evidence.url && evidence.url !== '#' && (
+                                <div className="col-span-2">
+                                  <span className="font-medium">Source:</span>{" "}
+                                  <a 
+                                    href={evidence.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="text-blue-400 hover:underline break-all"
+                                  >
+                                    View Original
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                   
-                  {Array.isArray(categoryData?.flagged) && categoryData.flagged.length > 0 && (
+                  {Array.isArray(categoryData?.flaggedContent) && categoryData.flaggedContent.length > 0 && (
                     <details className="mt-4 mb-6">
                       <summary className="cursor-pointer text-amber-400 font-medium flex items-center">
                         <MdDangerous className="inline mr-2" />
-                        {categoryData.flagged.length} Flagged Items
+                        {categoryData.flaggedContent.length} Flagged Items
+                      </summary>
+                      <ul className="mt-2 space-y-4 pl-4 border-l-2 border-amber-900/50">
+                        {categoryData.flaggedContent.map((item: any, i: number) => (
+                          <li key={i} className="bg-amber-900/10 border border-amber-800/30 p-4 rounded-lg">
+                            <div className="font-medium text-amber-300 mb-2">{item.reason || "Flagged content"}</div>
+                            <blockquote className="text-gray-300 italic mb-3 pl-3 border-l-2 border-gray-600">
+                              {item.content || item.excerpt}
+                            </blockquote>
+                            <div className="text-xs text-gray-400 space-y-1">
+                              <div><span className="font-medium">Platform:</span> {item.platform}</div>
+                              <div><span className="font-medium">Date:</span> {item.date}</div>
+                              <div><span className="font-medium">Author:</span> {item.author}</div>
+                              {item.url && item.url !== '#' && (
+                                <div>
+                                  <span className="font-medium">Source:</span>{" "}
+                                  <a 
+                                    href={item.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="text-blue-400 hover:underline break-all"
+                                  >
+                                    View Original
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+
+                  {/* Legacy flagged items support */}
+                  {Array.isArray(categoryData?.flagged) && categoryData.flagged.length > 0 && !(categoryData?.flaggedContent?.length > 0) && (
+                    <details className="mt-4 mb-6">
+                      <summary className="cursor-pointer text-amber-400 font-medium flex items-center">
+                        <MdDangerous className="inline mr-2" />
+                        {categoryData.flagged.length} Flagged Items (Legacy)
                       </summary>
                       <ul className="mt-2 space-y-4 pl-4 border-l-2 border-amber-900/50">
                         {categoryData.flagged.map((item: unknown, i: number) => {
@@ -507,6 +585,32 @@ export default function HomePage() {
                   )}
                 </section>
               ))}
+            </div>
+            
+            {/* Bottom Home Button */}
+            <div className="flex justify-center mt-12">
+              <button
+                onClick={() => {
+                  setStep('form');
+                  setAnalysisResults({});
+                  setUserName('');
+                  setCurrentUserId('');
+                  setLoading(false);
+                  setSubmitDisabled(false);
+                }}
+                className="group flex items-center px-8 py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 text-white font-semibold text-lg rounded-xl shadow-2xl shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 transform hover:scale-105 border border-emerald-500/30"
+              >
+                <svg 
+                  className="w-6 h-6 mr-3 transition-transform duration-300 group-hover:rotate-12" 
+                  fill="currentColor" 
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+                <span className="bg-gradient-to-r from-white to-gray-100 bg-clip-text text-transparent font-bold">
+                  🏠 Start New Analysis
+                </span>
+              </button>
             </div>
           </div>
         )}
