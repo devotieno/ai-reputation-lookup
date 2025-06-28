@@ -15,6 +15,7 @@ export async function submitUserInput(data: UserInput, userId?: string): Promise
   if (data.reddit) formData.append("reddit", data.reddit);
   if (data.youtube) formData.append("youtube", data.youtube);
   if (data.instagram) formData.append("instagram", data.instagram);
+  if (data.github) formData.append("github", data.github);
   if (data.email) formData.append("email", data.email);
   if (data.photo) formData.append("photo", data.photo);
   if (userId) formData.append("userId", userId);

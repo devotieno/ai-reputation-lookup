@@ -19,6 +19,7 @@ export type UserInput = {
   reddit?: string;
   youtube?: string;
   instagram?: string;
+  github?: string;
   email?: string;
   photo?: File | null;
 };

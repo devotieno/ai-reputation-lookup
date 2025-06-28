@@ -25,12 +25,13 @@ export async function POST(request: NextRequest) {
     const reddit = formData.get("reddit") as string || null;
     const youtube = formData.get("youtube") as string || null;
     const instagram = formData.get("instagram") as string || null;
+    const github = formData.get("github") as string || null;
     const email = formData.get("email") as string || null;
     const userId = formData.get("userId") as string || null;
     const photo = formData.get("photo") as File || null;
 
     console.log("Form data received:", { 
-      name, twitter, linkedin, reddit, youtube, instagram, email, userId, photo: !!photo 
+      name, twitter, linkedin, reddit, youtube, instagram, github, email, userId, photo: !!photo 
     });
 
     let photoUrl = null;
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
       reddit,
       youtube,
       instagram,
+      github,
       email,
       photoUrl,
       faceEmbeddings,
@@ -151,6 +153,19 @@ export async function POST(request: NextRequest) {
           userId: docRef.id,
           category: "instagram",
           query: instagram,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+        })
+      );
+    }
+    
+    if (github) {
+      console.log("Queuing GitHub job for:", github);
+      jobPromises.push(
+        addDoc(collection(db, "jobs"), {
+          userId: docRef.id,
+          category: "github",
+          query: github,
           status: "pending",
           createdAt: new Date().toISOString(),
         })
