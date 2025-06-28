@@ -6,8 +6,9 @@ import { FcGoogle } from "react-icons/fc";
 import { FiMail } from "react-icons/fi";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 
-export default function SignIn() {
+function SignInContent() {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const searchParams = useSearchParams();
@@ -114,5 +115,13 @@ export default function SignIn() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignIn() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+      <SignInContent />
+    </Suspense>
   );
 }
