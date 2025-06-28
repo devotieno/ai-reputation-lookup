@@ -1,3 +1,44 @@
+// Helper function to create GitHub API headers
+function getGitHubHeaders(): HeadersInit {
+  const headers: HeadersInit = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'ai-reputation-lookup/0.1'
+  };
+  
+  // Add GitHub token if available for higher rate limits and access to more data
+  if (process.env.GITHUB_TOKEN) {
+    headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
+    console.log('Using authenticated GitHub API requests');
+  } else {
+    console.warn('No GITHUB_TOKEN found - using unauthenticated requests (lower rate limits)');
+  }
+  
+  return headers;
+}
+
+// Helper function to handle GitHub API responses
+async function handleGitHubResponse(response: Response, endpoint: string) {
+  if (!response.ok) {
+    if (response.status === 403) {
+      const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
+      const rateLimitReset = response.headers.get('x-ratelimit-reset');
+      console.error(`GitHub API rate limit exceeded for ${endpoint}. Remaining: ${rateLimitRemaining}, Reset: ${rateLimitReset}`);
+    } else if (response.status === 404) {
+      console.log(`GitHub resource not found: ${endpoint}`);
+    } else {
+      console.error(`GitHub API error for ${endpoint}: ${response.status} ${response.statusText}`);
+    }
+    return null;
+  }
+  
+  const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
+  if (rateLimitRemaining && parseInt(rateLimitRemaining) < 10) {
+    console.warn(`GitHub API rate limit running low: ${rateLimitRemaining} requests remaining`);
+  }
+  
+  return await response.json();
+}
+
 export async function fetchGithubData(query: string) {
   try {
     // Extract username from query (handle various formats)
@@ -83,18 +124,14 @@ function extractGitHubUsername(query: string): string | null {
 async function fetchGitHubProfile(username: string) {
   try {
     const res = await fetch(`https://api.github.com/users/${username}`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'ai-reputation-lookup/0.1'
-      }
+      headers: getGitHubHeaders()
     });
     
-    if (!res.ok) {
-      console.error(`GitHub profile API error for ${username}: ${res.status}`);
+    const profile = await handleGitHubResponse(res, `users/${username}`);
+    
+    if (!profile) {
       return null;
     }
-    
-    const profile = await res.json();
     
     return {
       content: `GitHub Profile: ${profile.name || username} - ${profile.bio || 'No bio available'}. Public repos: ${profile.public_repos}, Followers: ${profile.followers}, Following: ${profile.following}. Member since: ${new Date(profile.created_at).getFullYear()}`,
@@ -121,20 +158,12 @@ async function fetchGitHubProfile(username: string) {
 async function fetchGitHubEvents(username: string) {
   try {
     const res = await fetch(`https://api.github.com/users/${username}/events/public`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'ai-reputation-lookup/0.1'
-      }
+      headers: getGitHubHeaders()
     });
     
-    if (!res.ok) {
-      console.error(`GitHub events API error for ${username}: ${res.status}`);
-      return [];
-    }
+    const events = await handleGitHubResponse(res, `users/${username}/events/public`);
     
-    const events = await res.json();
-    
-    if (!Array.isArray(events)) {
+    if (!events || !Array.isArray(events)) {
       return [];
     }
     
@@ -159,20 +188,12 @@ async function fetchGitHubEvents(username: string) {
 async function fetchGitHubRepos(username: string) {
   try {
     const res = await fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=10`, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'ai-reputation-lookup/0.1'
-      }
+      headers: getGitHubHeaders()
     });
     
-    if (!res.ok) {
-      console.error(`GitHub repos API error for ${username}: ${res.status}`);
-      return [];
-    }
+    const repos = await handleGitHubResponse(res, `users/${username}/repos`);
     
-    const repos = await res.json();
-    
-    if (!Array.isArray(repos)) {
+    if (!repos || !Array.isArray(repos)) {
       return [];
     }
     
