@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { FaUserCircle, FaCog, FaSignOutAlt, FaShieldAlt } from "react-icons/fa";
 import { motion } from "framer-motion";
@@ -73,9 +74,11 @@ export default function AppHeader() {
               <div className="flex items-center bg-gray-800/70 rounded-lg px-3 py-1.5">
                 {session.user?.image && (
                   <div className="relative">
-                    <img
+                    <Image
                       src={session.user.image}
                       alt="Profile"
+                      width={32}
+                      height={32}
                       className="h-8 w-8 rounded-full mr-2 border-2 border-violet-500"
                     />
                     <div className="absolute bottom-0 right-1.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-gray-900"></div>
