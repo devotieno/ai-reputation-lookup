@@ -91,7 +91,7 @@ const UserInputForm: React.FC<{
                   value={form.twitter || ""} 
                   onChange={handleChange}
                   className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all" 
-                  placeholder="@username or x.com/username"
+                  placeholder="@username"
                 />
               </div>
 
@@ -168,7 +168,7 @@ const UserInputForm: React.FC<{
                   value={form.youtube || ""} 
                   onChange={handleChange}
                   className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all" 
-                  placeholder="youtube.com/@channel"
+                  placeholder="@channel"
                 />
               </div>
 
@@ -206,7 +206,7 @@ const UserInputForm: React.FC<{
                   value={form.github || ""} 
                   onChange={handleChange}
                   className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent transition-all" 
-                  placeholder="github.com/username"
+                  placeholder="username"
                 />
               </div>
 
