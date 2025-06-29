@@ -1,3 +1,4 @@
+import { CATEGORY_EXAMPLES } from "./aiPromptExamples";
 import { chunkText } from "./chunkText";
 import { analyzeTextWithAI, analyzeWithOpenAI } from "./aiAnalysis";
 import { analyzeToxicity } from "./perspective";
@@ -352,22 +353,24 @@ INSTRUCTIONS:
 3. Pull examples of posts demonstrating industry expertise
 4. Assess professional communication quality
 
+${CATEGORY_EXAMPLES.professionalism}
+
 Return a JSON object with:
 {
-  "summary": "A paragraph explaining overall professionalism findings, similar to: 'Employment history consistent across LinkedIn and interviews. Posts include detailed SaaS product management commentary. No major grammar issues observed.'",
+  "summary": "A paragraph explaining overall professionalism findings, similar to the example above.",
   "flagged": [
     {
       "content": "Direct quote from the content",
-      "reason": "Specific reason this was flagged (positive or negative)",
-      "url": "Source URL",
-      "date": "Date of content",
-      "platform": "Platform/source name"
+      "reason": "Why this content is flagged (e.g., inconsistency, unprofessional language)",
+      "url": "Link to the content if available",
+      "date": "Date of the content if available"
     }
   ]
 }
-
-Content to analyze:
-${data.map(item => `"${item.content}" (Source: ${item.url}, Date: ${item.date}, Platform: ${item.platform || 'Unknown'})`).join('\n\n')}
+Analyze the following data:
+${data.map(item => `Quote: "${item.content || ''}"
+Date: ${item.date || 'Unknown'}
+URL: ${item.url || 'Unknown'}`).join('\n\n')}
 `;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -434,9 +437,11 @@ INSTRUCTIONS:
 3. Identify patterns of self-promotion vs constructive dialogue
 4. Note sarcasm, profanity, or unprofessional communication
 
+${CATEGORY_EXAMPLES.toneAndLanguage}
+
 Return a JSON object with:
 {
-  "summary": "A paragraph explaining tone findings, similar to: 'Consistent professional tone in long-form posts. Occasional sarcasm directed at competitors on X. No profanity observed.'",
+  "summary": "A paragraph explaining tone findings, similar to the example above.",
   "flagged": [
     {
       "content": "Direct quote showing the tone issue",
@@ -516,9 +521,11 @@ INSTRUCTIONS:
 3. Extract direct quotes from both positive and negative mentions
 4. Identify any ongoing controversies or debates
 
+${CATEGORY_EXAMPLES.sentiment}
+
 Return a JSON object with:
 {
-  "summary": "A paragraph explaining third-party sentiment, similar to: 'Positive coverage in multiple TechCrunch articles. One Reddit thread questioning transparency around recent fundraising (linked). No major controversies identified.'",
+  "summary": "A paragraph explaining third-party sentiment, similar to the example above.",
   "flagged": [
     {
       "content": "Direct quote from third-party source",
@@ -579,14 +586,12 @@ async function analyzeConsistency(data: any[]): Promise<any> {
     if (!process.env.OPENAI_API_KEY) {
       return fallbackCategoryResult("consistency");
     }
-    
     // Sort data chronologically for better analysis
     const sortedData = [...data].sort((a, b) => {
       const dateA = a.date ? new Date(a.date).getTime() : 0;
       const dateB = b.date ? new Date(b.date).getTime() : 0;
       return dateA - dateB;
     });
-    
     const consistencyPrompt = `
 You are analyzing content for CONSISTENCY over time. Follow these specific criteria:
 
@@ -605,9 +610,11 @@ INSTRUCTIONS:
 3. Look for changes in political, ethical, or professional stances
 4. Note any public apologies or retractions
 
+${CATEGORY_EXAMPLES.consistency}
+
 Return a JSON object with:
 {
-  "summary": "A paragraph explaining consistency findings, similar to: 'Previously advocated remote-first work model, reversed position in recent interviews. Issued public apology in 2022 regarding insensitive comment.'",
+  "summary": "A paragraph explaining consistency findings, similar to the example above.",
   "flagged": [
     {
       "content": "Direct quote showing the inconsistency",
@@ -668,7 +675,6 @@ async function analyzeAuthenticity(data: any[]): Promise<any> {
     if (!process.env.OPENAI_API_KEY) {
       return fallbackCategoryResult("authenticity");
     }
-    
     const authenticityPrompt = `
 You are analyzing content for AUTHENTICITY markers. Follow these specific criteria:
 
@@ -687,9 +693,11 @@ INSTRUCTIONS:
 3. Look for vulnerability, personal failures, authentic storytelling
 4. Assess genuine community engagement vs performative posting
 
+${CATEGORY_EXAMPLES.authenticity}
+
 Return a JSON object with:
 {
-  "summary": "A paragraph explaining authenticity findings, similar to: 'Shares personal career journey in multiple interviews. Willing to discuss personal failures. High engagement on community-focused threads.'",
+  "summary": "A paragraph explaining authenticity findings, similar to the example above.",
   "flagged": [
     {
       "content": "Direct quote showing authenticity marker",
@@ -750,7 +758,6 @@ async function analyzeSocialRisk(data: any[], toxicityScore: number): Promise<an
     if (!process.env.OPENAI_API_KEY) {
       return fallbackCategoryResult("socialRiskProfile");
     }
-    
     const riskPrompt = `
 You are analyzing content for SOCIAL RISK PROFILE (Cancelability). Follow these specific criteria:
 
@@ -770,9 +777,11 @@ INSTRUCTIONS:
 4. Assess severity and potential for public backlash
 5. Note: Toxicity score provided is ${toxicityScore} (0-1 scale)
 
+${CATEGORY_EXAMPLES.socialRiskProfile}
+
 Return a JSON object with:
 {
-  "summary": "A paragraph explaining social risk findings, similar to: 'One post from 2018 flagged for offensive racial slur (linked). No pattern of recurring problematic behavior detected.'",
+  "summary": "A paragraph explaining social risk findings, similar to the example above.",
   "flagged": [
     {
       "content": "Direct quote of problematic content",
@@ -841,14 +850,12 @@ async function analyzeOnlineExposure(data: any[]): Promise<any> {
     if (!process.env.OPENAI_API_KEY) {
       return fallbackCategoryResult("onlineExposure");
     }
-    
     // Group data by source type
     const sourceTypes = data.reduce((acc: Record<string, number>, item) => {
       const sourceType = item.sourceType || "unknown";
       acc[sourceType] = (acc[sourceType] || 0) + 1;
       return acc;
     }, {});
-    
     const exposurePrompt = `
 You are analyzing content for ONLINE EXPOSURE LEVEL. Follow these specific criteria:
 
@@ -872,9 +879,11 @@ Additional context:
 - Total items analyzed: ${data.length}
 - Source breakdown: ${JSON.stringify(sourceTypes)}
 
+${CATEGORY_EXAMPLES.onlineExposure}
+
 Return a JSON object with:
 {
-  "summary": "A paragraph explaining exposure level, similar to: 'Featured in 4 major tech press articles, appeared on 2 podcasts, mentioned in multiple Reddit threads, and ranks on Google first page.'", 
+  "summary": "A paragraph explaining exposure level, similar to the example above.", 
   "flagged": [
     {
       "content": "Quote or mention showing visibility",
@@ -939,7 +948,6 @@ async function analyzePositiveMarkers(data: any[]): Promise<any> {
     if (!process.env.OPENAI_API_KEY) {
       return fallbackCategoryResult("positiveMarkers");
     }
-    
     const positivePrompt = `
 You are analyzing content for POSITIVE REPUTATION MARKERS. Follow these specific criteria:
 
@@ -959,9 +967,11 @@ INSTRUCTIONS:
 3. Look for leadership roles and community contributions
 4. Note verified status and platform recognition
 
+${CATEGORY_EXAMPLES.positiveMarkers}
+
 Return a JSON object with:
 {
-  "summary": "A paragraph explaining positive markers, similar to: 'Selected for Forbes 30 Under 30 (2023). Board member at local nonprofit. Verified LinkedIn and Twitter accounts.'",
+  "summary": "A paragraph explaining positive markers, similar to the example above.",
   "flagged": [
     {
       "content": "Quote or mention of the achievement",
