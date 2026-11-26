@@ -1,10 +1,8 @@
 "use client";
 
 import UserInputForm from "../components/UserInputForm";
-import OAuthConnect from "../components/OAuthConnect";
 import ProcessingIndicator from "../components/ProcessingIndicatorSimple";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useSession } from "next-auth/react";
 import type { JSX } from "react";
 import * as apiClient from "@/utils/api";
 import jsPDF from "jspdf";
@@ -227,7 +225,6 @@ function CategoryRow({ name, data }: { name: string; data: Record<string, unknow
 
 /* ═══ Main page ══════════════════════════════════════════ */
 export default function HomePage() {
-  const { data: session } = useSession();
   const [results, setResults] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<"form" | "processing" | "results">("form");
@@ -285,14 +282,14 @@ export default function HomePage() {
     setSubmitDisabled(true); setLoading(true);
     setResults({}); setStep("processing"); setUserName(data.name);
     try {
-      const { userId } = await apiClient.submitUserInput(data, session?.user?.id);
+      const { userId } = await apiClient.submitUserInput(data);
       await fetch(`/api/processJobs?userId=${userId}`, { method: "GET", cache: "no-store" }).catch(() => {});
       pollForResults(userId);
     } catch {
       setLoading(false); setStep("form"); setSubmitDisabled(false);
       alert("Error submitting request. Please try again.");
     }
-  }, [loading, submitDisabled, session?.user?.id, pollForResults]);
+  }, [loading, submitDisabled, pollForResults]);
 
   const handlePDF = useCallback(async () => {
     if (!reportRef.current) return;
@@ -339,12 +336,7 @@ export default function HomePage() {
       <UserInputForm
         onSubmit={handleSubmit}
         disabled={submitDisabled}
-        isAuthenticated={!!session}
-        connectedAccounts={[]}
       />
-
-      {/* Connect strip */}
-      {session && <OAuthConnect />}
 
       {/* How it works */}
       <div style={{ marginTop: "3rem", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
@@ -380,7 +372,7 @@ export default function HomePage() {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.375rem" }}>
             <span className="badge">
-              {session ? "Connected analysis" : "Public analysis"}
+              Public analysis
             </span>
             <span style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>
               {catCount} {catCount === 1 ? "category" : "categories"}
@@ -419,12 +411,6 @@ export default function HomePage() {
           </div>
         )}
       </div>
-
-      {!session && (
-        <div style={{ marginTop: "1rem", padding: "0.875rem 1.25rem", borderRadius: "var(--radius)", border: "1px solid rgba(139,92,246,0.2)", background: "rgba(139,92,246,0.06)", fontSize: "0.8125rem", color: "var(--accent-hi)" }}>
-          Sign in to enable first-party social data for deeper insights →
-        </div>
-      )}
     </div>
   );
 }

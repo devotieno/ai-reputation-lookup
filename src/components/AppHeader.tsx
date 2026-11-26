@@ -2,14 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { useSession, signIn, signOut } from "next-auth/react";
 
 export default function AppHeader() {
-  const { data: session } = useSession();
-  const pathname = usePathname();
-
   return (
     <header
       style={{
@@ -23,7 +17,6 @@ export default function AppHeader() {
       }}
     >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
-        {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group" style={{ textDecoration: "none" }}>
           <div
             style={{
@@ -47,67 +40,9 @@ export default function AppHeader() {
           </span>
         </Link>
 
-        {/* Nav */}
-        <nav className="flex items-center gap-1.5">
-          {!session ? (
-            <button
-              onClick={() => signIn("google")}
-              className="btn btn-primary"
-              style={{ padding: "0.4rem 0.875rem", fontSize: "0.8125rem" }}
-            >
-              Sign in
-            </button>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <Link
-                href="/settings"
-                className="btn btn-ghost"
-                style={{
-                  padding: "0.4rem 0.75rem",
-                  fontSize: "0.8125rem",
-                  fontWeight: pathname === "/settings" ? 700 : 500,
-                  color: pathname === "/settings" ? "var(--accent-hi)" : undefined,
-                  borderColor: pathname === "/settings" ? "rgba(139,92,246,0.3)" : undefined,
-                  background: pathname === "/settings" ? "rgba(139,92,246,0.08)" : undefined,
-                }}
-              >
-                Connections
-              </Link>
-
-              <div
-                className="flex items-center gap-2 cursor-pointer"
-                style={{
-                  padding: "0.3rem 0.5rem 0.3rem 0.3rem",
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "var(--surface)",
-                }}
-              >
-                {session.user?.image && (
-                  <Image
-                    src={session.user.image}
-                    alt={session.user.name || "Avatar"}
-                    width={22}
-                    height={22}
-                    style={{ borderRadius: "50%", display: "block" }}
-                  />
-                )}
-                <span style={{ fontSize: "0.8125rem", color: "var(--text-2)", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {session.user?.name?.split(" ")[0]}
-                </span>
-              </div>
-
-              <button
-                onClick={() => signOut()}
-                className="btn btn-ghost"
-                style={{ padding: "0.4rem 0.75rem", fontSize: "0.8125rem" }}
-                title="Sign out"
-              >
-                Sign out
-              </button>
-            </div>
-          )}
-        </nav>
+        <span className="badge" style={{ fontSize: "0.7rem" }}>
+          Public lookup
+        </span>
       </div>
     </header>
   );
