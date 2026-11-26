@@ -4,13 +4,11 @@ import UserInputForm from "../components/UserInputForm";
 import OAuthConnect from "../components/OAuthConnect";
 import ProcessingIndicator from "../components/ProcessingIndicatorSimple";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { FaReddit, FaTwitter, FaYoutube, FaLinkedin, FaSearch, FaRobot, FaShieldAlt, FaInfoCircle, FaDownload, FaChartBar, FaCheck, FaUser, FaComments, FaHeart, FaBalanceScale, FaUserCheck, FaExclamationTriangle, FaGlobe, FaStar } from "react-icons/fa";
-import { MdDangerous } from "react-icons/md";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import { useSession } from "next-auth/react";
 import type { JSX } from "react";
 import * as apiClient from "@/utils/api";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 export type UserInput = {
   name: string;
@@ -24,596 +22,409 @@ export type UserInput = {
   photo?: File | null;
 };
 
-const CATEGORY_ICONS: Record<string, JSX.Element> = {
-  professionalism: <FaUser className="text-blue-400" />,
-  toneAndLanguage: <FaComments className="text-green-400" />,
-  sentiment: <FaHeart className="text-pink-400" />,
-  consistency: <FaBalanceScale className="text-purple-400" />,
-  authenticity: <FaUserCheck className="text-teal-400" />,
-  socialRiskProfile: <FaExclamationTriangle className="text-red-400" />,
-  onlineExposure: <FaGlobe className="text-orange-400" />,
-  positiveMarkers: <FaStar className="text-yellow-400" />,
+/* ── Category metadata ───────────────────────────────── */
+const CAT: Record<string, { label: string; icon: JSX.Element }> = {
+  professionalism:  { label: "Professionalism",              icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
+  toneAndLanguage:  { label: "Tone & Language",              icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> },
+  sentiment:        { label: "Sentiment",                    icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg> },
+  consistency:      { label: "Consistency",                  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> },
+  authenticity:     { label: "Authenticity",                 icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+  socialRiskProfile:{ label: "Social Risk",                  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> },
+  onlineExposure:   { label: "Online Exposure",              icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> },
+  positiveMarkers:  { label: "Positive Markers",             icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> },
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  professionalism: "Professionalism",
-  toneAndLanguage: "Tone & Language", 
-  sentiment: "Sentiment Analysis",
-  consistency: "Consistency",
-  authenticity: "Authenticity",
-  socialRiskProfile: "Social Risk Profile",
-  onlineExposure: "Online Exposure Level",
-  positiveMarkers: "Positive Reputation Markers",
-};
+/* ── Score helpers ───────────────────────────────────── */
+function scoreMeta(score: number) {
+  if (score >= 80) return { color: "#4ade80", label: "Good" };
+  if (score >= 60) return { color: "#fbbf24", label: "Fair" };
+  return { color: "#f87171", label: "Low" };
+}
 
-const CATEGORIES = Object.keys(CATEGORY_ICONS);
+/* ── Category row ────────────────────────────────────── */
+function CategoryRow({ name, data }: { name: string; data: Record<string, unknown> }) {
+  const [open, setOpen] = useState(false);
+  const [evOpen, setEvOpen] = useState(false);
+  const [flOpen, setFlOpen] = useState(false);
 
+  const meta   = CAT[name] ?? { label: name.charAt(0).toUpperCase() + name.slice(1), icon: null };
+  const score  = data?.score as number | undefined;
+  const sm     = score !== undefined ? scoreMeta(score) : null;
+  const narrative  = data?.narrative as string | undefined;
+  const summary    = data?.summary as string | undefined;
+  const platforms  = data?.platforms as string[] | undefined;
+  const evidence   = data?.evidenceWithSources as unknown[] | undefined;
+  const flaggedContent = data?.flaggedContent as unknown[] | undefined;
+  const flagged    = data?.flagged as unknown[] | undefined;
+  const flagList   = flaggedContent?.length ? flaggedContent : flagged;
+
+  return (
+    <div style={{ borderBottom: "1px solid var(--border)" }}>
+      {/* Header */}
+      <button
+        onClick={() => setOpen((p) => !p)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.75rem",
+          padding: "0.875rem 1.25rem",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "left",
+          transition: "background 0.1s",
+        }}
+        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.025)")}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "none")}
+      >
+        {/* icon */}
+        <span style={{ color: "var(--text-3)", flexShrink: 0 }}>{meta.icon}</span>
+
+        {/* label */}
+        <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: 500, color: "var(--text-1)" }}>
+          {meta.label}
+        </span>
+
+        {/* platforms */}
+        {platforms && platforms.length > 0 && (
+          <span style={{ fontSize: "0.7rem", color: "var(--text-3)", display: "none" }} className="sm:block">
+            {platforms.join(" · ")}
+          </span>
+        )}
+
+        {/* score */}
+        {sm && score !== undefined && (
+          <span style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+            <span
+              style={{
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                color: sm.color,
+                fontFamily: "var(--font-geist-mono), monospace",
+              }}
+            >
+              {score}
+            </span>
+            <div style={{ width: 48, height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${score}%`, background: sm.color, borderRadius: 99 }} />
+            </div>
+          </span>
+        )}
+
+        {/* flag badge */}
+        {flagList && flagList.length > 0 && (
+          <span className="badge badge-amber" style={{ fontSize: "0.65rem", padding: "0.1rem 0.4rem" }}>
+            {flagList.length} flagged
+          </span>
+        )}
+
+        {/* chevron */}
+        <svg
+          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="2.5"
+          strokeLinecap="round" strokeLinejoin="round"
+          style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {/* Body */}
+      {open && (
+        <div style={{ padding: "0 1.25rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+          {/* Narrative */}
+          <div style={{ padding: "1rem 0", fontSize: "0.8125rem", color: "var(--text-2)", lineHeight: 1.7 }}>
+            {narrative ? (
+              <div dangerouslySetInnerHTML={{
+                __html: narrative
+                  .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text-1)">$1</strong>')
+                  .replace(/## (.*?)$/gm, '<p style="font-size:0.875rem;font-weight:600;color:var(--text-1);margin:1rem 0 0.25rem">$1</p>')
+                  .replace(/\n/g, "<br/>"),
+              }} />
+            ) : (
+              <p style={{ margin: 0 }}>{summary ?? "No analysis available."}</p>
+            )}
+          </div>
+
+          {/* Evidence */}
+          {evidence && evidence.length > 0 && (
+            <div style={{ marginTop: "0.75rem" }}>
+              <button
+                onClick={() => setEvOpen((p) => !p)}
+                style={{ display: "flex", alignItems: "center", gap: "0.375rem", background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "var(--accent-hi)", fontWeight: 500, padding: 0 }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: evOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+                Evidence ({evidence.length})
+              </button>
+              {evOpen && (
+                <div style={{ marginTop: "0.625rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  {(evidence as Array<Record<string, string>>).slice(0, 5).map((ev, i) => (
+                    <div key={i} className="inset" style={{ padding: "0.75rem" }}>
+                      <blockquote style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-2)", fontStyle: "italic", borderLeft: "2px solid var(--accent)", paddingLeft: "0.625rem", lineHeight: 1.5 }}>
+                        {ev.quote}
+                      </blockquote>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "0.5rem", fontSize: "0.7rem", color: "var(--text-3)" }}>
+                        {ev.platform && <span>Platform: {ev.platform}</span>}
+                        {ev.author && <span>Author: {ev.author}</span>}
+                        {ev.date && <span>{ev.date}</span>}
+                        {ev.url && ev.url !== "#" && <a href={ev.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-hi)" }}>View ↗</a>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Flagged */}
+          {flagList && flagList.length > 0 && (
+            <div style={{ marginTop: "0.75rem" }}>
+              <button
+                onClick={() => setFlOpen((p) => !p)}
+                style={{ display: "flex", alignItems: "center", gap: "0.375rem", background: "none", border: "none", cursor: "pointer", fontSize: "0.75rem", color: "#fbbf24", fontWeight: 500, padding: 0 }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: flOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+                {flagList.length} Flagged items
+              </button>
+              {flOpen && (
+                <div style={{ marginTop: "0.625rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  {(flagList as Array<Record<string, unknown>>).map((item, i) => {
+                    const reason   = item.reason != null ? String(item.reason) : null;
+                    const content  = String(item.content ?? item.excerpt ?? "");
+                    const platform = item.platform != null ? String(item.platform) : null;
+                    const date     = item.date != null ? String(item.date) : null;
+                    const severity = item.severity != null ? String(item.severity) : null;
+                    const url      = item.url != null && item.url !== "#" ? String(item.url) : null;
+                    const sevColor = severity === "high" ? "#f87171" : severity === "medium" ? "#fbbf24" : "#4ade80";
+                    return (
+                      <div key={i} className="inset" style={{ padding: "0.75rem", borderColor: "rgba(245,158,11,0.2)" }}>
+                        {reason && <p style={{ margin: "0 0 0.375rem", fontSize: "0.75rem", fontWeight: 600, color: "#fbbf24" }}>{reason}</p>}
+                        <blockquote style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-2)", fontStyle: "italic", borderLeft: "2px solid rgba(245,158,11,0.4)", paddingLeft: "0.625rem", lineHeight: 1.5 }}>
+                          {content}
+                        </blockquote>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "0.5rem", fontSize: "0.7rem", color: "var(--text-3)" }}>
+                          {platform && <span>Platform: {platform}</span>}
+                          {date && <span>{date}</span>}
+                          {severity && <span style={{ color: sevColor, fontWeight: 600 }}>{severity.toUpperCase()}</span>}
+                          {url && <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-hi)" }}>View ↗</a>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══ Main page ══════════════════════════════════════════ */
 export default function HomePage() {
   const { data: session } = useSession();
-  const [analysisResults, setAnalysisResults] = useState<Record<string, unknown>>({});
+  const [results, setResults] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'form' | 'processing' | 'results'>('form');
-  const [userName, setUserName] = useState<string>("");
-  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [step, setStep] = useState<"form" | "processing" | "results">("form");
+  const [userName, setUserName] = useState("");
   const [isPolling, setIsPolling] = useState(false);
   const [submitDisabled, setSubmitDisabled] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
-  const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollRef   = useRef<NodeJS.Timeout | null>(null);
 
-  // Memoize analysis results processing - simplified for performance
-  const processedResults = useMemo(() => {
-    if (!analysisResults || Object.keys(analysisResults).length === 0) return null;
-    return analysisResults; // Return as-is, process in render if needed
-  }, [analysisResults]);
+  const catCount = useMemo(() => Object.keys(results).length, [results]);
 
-  // Cleanup effect
-  useEffect(() => {
-    return () => {
-      if (pollTimeoutRef.current) {
-        clearTimeout(pollTimeoutRef.current);
-      }
-    };
-  }, []);
+  useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
 
-  // Fast polling function for quick results
   const pollForResults = useCallback(async (userId: string) => {
-    if (isPolling) return; // Prevent multiple polling instances
-    
+    if (isPolling) return;
     setIsPolling(true);
     let attempts = 0;
-    const maxAttempts = 40; // Reduced to 40 attempts (2 minutes total)
-    const pollInterval = 3000; // 3 seconds between polls
+    const MAX = 40;
 
     const poll = async () => {
       attempts++;
-      console.log(`Polling attempt ${attempts}/${maxAttempts} for userId: ${userId}`);
-      
       try {
-        // Use AbortController for request timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-        
-        const { results } = await apiClient.getAnalysisResults(userId);
-        clearTimeout(timeoutId);
-        
-        console.log("Polling results:", results);
-
-        // Check if we have ANY analysis results (even partial)
-        const hasResults = results && 
-          Object.keys(results).length > 0 && 
-          Object.keys(results).some(categoryName => {
-            const categoryData = results[categoryName] as { 
-              summary?: string; 
-              flagged?: unknown[]; 
-              platforms?: string[]; 
-            };
-            return categoryData && (
-              (categoryData.summary && categoryData.summary !== "No data available for analysis.") ||
-              (categoryData.flagged && categoryData.flagged.length > 0)
-            );
+        const { results: res } = await apiClient.getAnalysisResults(userId);
+        const hasData = res && Object.keys(res).length > 0 &&
+          Object.keys(res).some((k) => {
+            const d = res[k] as { summary?: string; flagged?: unknown[] };
+            return d?.summary && d.summary !== "No data available for analysis.";
           });
+        const partial = attempts >= 6 && res && Object.keys(res).length > 0;
 
-        // Show partial results after 6 attempts (18 seconds) if we have any data
-        const hasPartialResults = attempts >= 6 && results && Object.keys(results).length > 0;
-
-        if (hasResults || hasPartialResults) {
-          console.log(hasPartialResults ? "Showing partial results" : "Analysis complete, setting results");
-          setAnalysisResults(results);
+        if (hasData || partial) {
+          setResults(res);
           setLoading(false);
-          setStep('results');
+          setStep("results");
           setIsPolling(false);
-          return; // Exit polling
-        } 
-        
-        // Trigger job processing every 5 attempts (15 seconds) to ensure jobs are being processed
-        if (attempts % 5 === 0) {
-          console.log(`Triggering job processing at attempt ${attempts}`);
-          try {
-            await fetch("/api/processJobs", {
-              method: "GET",
-              cache: 'no-store'
-            });
-            console.log("Job processing triggered successfully");
-          } catch (error) {
-            console.warn("Failed to trigger job processing:", error);
-          }
+          return;
         }
-        
-        // Check for stuck jobs every 20 attempts (160 seconds)
-        if (attempts % 20 === 0) {
-          console.log(`Checking for stuck jobs at attempt ${attempts}`);
-          try {
-            await fetch("/api/checkStuckJobs", {
-              method: "GET",
-              cache: 'no-store'
-            });
-            console.log("Stuck job check completed");
-          } catch (error) {
-            console.warn("Failed to check stuck jobs:", error);
-          }
-        }
-        
-        if (attempts < maxAttempts) {
-          console.log(`No results yet, will retry in ${pollInterval/1000} seconds`);
-          pollTimeoutRef.current = setTimeout(poll, pollInterval);
+        if (attempts % 5 === 0) fetch("/api/processJobs", { method: "GET", cache: "no-store" }).catch(() => {});
+        if (attempts < MAX) {
+          pollRef.current = setTimeout(poll, 3000);
         } else {
-          console.log("Analysis timed out after maximum attempts");
-          setLoading(false);
-          setStep('form');
-          setIsPolling(false);
-          setSubmitDisabled(false);
-          alert("Analysis is taking longer than expected. This may indicate an issue with data retrieval or processing. Please try again later or contact support if the issue persists.");
+          setLoading(false); setStep("form"); setIsPolling(false); setSubmitDisabled(false);
+          alert("Analysis timed out. Please try again.");
         }
-      } catch (error) {
-        console.error("Error polling for results:", error);
-        if (attempts < maxAttempts) {
-          console.log(`Error occurred, retrying in ${pollInterval/1000} seconds`);
-          pollTimeoutRef.current = setTimeout(poll, pollInterval);
-        } else {
-          setLoading(false);
-          setStep('form');
-          setIsPolling(false);
-          setSubmitDisabled(false);
-          alert("Error retrieving analysis results. Please check your connection and try again.");
-        }
+      } catch {
+        if (attempts < MAX) { pollRef.current = setTimeout(poll, 3000); }
+        else { setLoading(false); setStep("form"); setIsPolling(false); setSubmitDisabled(false); }
       }
     };
-
-    // Start polling immediately
     poll();
   }, [isPolling]);
 
-
-
-  // Optimized form submission with debouncing and better error handling
-  const handleUserInput = useCallback(async (data: UserInput) => {
-    if (loading || submitDisabled) return; // Prevent double submission
-    
-    setSubmitDisabled(true);
-    setLoading(true);
-    setAnalysisResults({});
-    setStep('processing');
-    setUserName(data.name);
-
+  const handleSubmit = useCallback(async (data: UserInput) => {
+    if (loading || submitDisabled) return;
+    setSubmitDisabled(true); setLoading(true);
+    setResults({}); setStep("processing"); setUserName(data.name);
     try {
-      // Submit user input using the centralized API client
       const { userId } = await apiClient.submitUserInput(data, session?.user?.id);
-      setCurrentUserId(userId);
-
-      // Jobs are now automatically queued by submitUserInput API based on provided platform handles
-      console.log(`User input submitted with ID: ${userId}. Jobs queued for provided platforms only.`);
-
-      // Immediately trigger job processing for faster results
-      try {
-        console.log("Triggering immediate job processing for current user...");
-        await fetch(`/api/processJobs?userId=${userId}`, {
-          method: "GET",
-          cache: 'no-store'
-        });
-        console.log("Job processing triggered successfully");
-      } catch (error) {
-        console.warn("Failed to trigger immediate job processing:", error);
-      }
-
-      // Start polling for results
+      await fetch(`/api/processJobs?userId=${userId}`, { method: "GET", cache: "no-store" }).catch(() => {});
       pollForResults(userId);
-
-    } catch (error) {
-      console.error("Error handling user input:", error);
-      setLoading(false);
-      setStep('form');
-      setSubmitDisabled(false);
-      alert("Error submitting analysis request. Please try again.");
+    } catch {
+      setLoading(false); setStep("form"); setSubmitDisabled(false);
+      alert("Error submitting request. Please try again.");
     }
   }, [loading, submitDisabled, session?.user?.id, pollForResults]);
 
-  // Optimized PDF download with error handling
-  const handleDownloadPDF = useCallback(async () => {
-    if (!reportRef.current || loading) return;
-
+  const handlePDF = useCallback(async () => {
+    if (!reportRef.current) return;
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Use html2canvas to capture the report as an image
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 1, // Reduce scale for better performance
-        useCORS: true,
-        allowTaint: true
-      });
-      const imgData = canvas.toDataURL('image/png');
+      const canvas = await html2canvas(reportRef.current, { scale: 1, useCORS: true });
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const w = pdf.internal.pageSize.getWidth();
+      const imgData = canvas.toDataURL("image/png");
+      const props = pdf.getImageProperties(imgData);
+      pdf.addImage(imgData, "PNG", 0, 0, w, (props.height * w) / props.width);
+      pdf.save(`${userName || "report"}-reputation.pdf`);
+    } catch { alert("PDF generation failed."); }
+    finally { setLoading(false); }
+  }, [userName]);
 
-      // Create a PDF from the image
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: "a4",
-      });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pageWidth;
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${userName || 'user'}-reputation-report.pdf`);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("Failed to generate PDF. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [loading, userName]);
-
-  // Optimized reset function
-  const resetToForm = useCallback(() => {
-    // Clear polling timeout
-    if (pollTimeoutRef.current) {
-      clearTimeout(pollTimeoutRef.current);
-      pollTimeoutRef.current = null;
-    }
-    
-    setIsPolling(false);
-    setLoading(false);
-    setStep('form');
-    setSubmitDisabled(false);
-    setAnalysisResults({});
-    setUserName("");
-    setCurrentUserId("");
+  const reset = useCallback(() => {
+    if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
+    setIsPolling(false); setLoading(false); setStep("form");
+    setSubmitDisabled(false); setResults({}); setUserName("");
   }, []);
 
+  /* ── Form step ──────────────────────────────────────── */
+  if (step === "form") return (
+    <div style={{ maxWidth: 740, margin: "0 auto" }}>
+      {/* Hero */}
+      <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", padding: "0.3rem 0.75rem", borderRadius: 99, border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.08)", fontSize: "0.75rem", color: "var(--accent-hi)", fontWeight: 500, marginBottom: "1.25rem" }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+          </svg>
+          AI-powered reputation intelligence
+        </div>
+        <h1 style={{ fontSize: "clamp(2rem, 5vw, 3rem)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.08, marginBottom: "0.875rem" }}>
+          Know what the internet<br />
+          <span className="grad">says about anyone.</span>
+        </h1>
+        <p style={{ fontSize: "1rem", color: "var(--text-2)", maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
+          Enter a name and social handles. Our AI scans public sources to build a comprehensive reputation report in minutes.
+        </p>
+      </div>
+
+      {/* Form */}
+      <UserInputForm
+        onSubmit={handleSubmit}
+        disabled={submitDisabled}
+        isAuthenticated={!!session}
+        connectedAccounts={[]}
+      />
+
+      {/* Connect strip */}
+      {session && <OAuthConnect />}
+
+      {/* How it works */}
+      <div style={{ marginTop: "3rem", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+        {[
+          { n: "1", title: "Enter details", desc: "Name and any social handles you have." },
+          { n: "2", title: "AI scans sources", desc: "Public posts, mentions & web results." },
+          { n: "3", title: "Get the report", desc: "Scored across 8 reputation dimensions." },
+        ].map((s) => (
+          <div key={s.n} style={{ textAlign: "center", padding: "1.25rem 1rem" }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--border)", fontSize: "0.75rem", fontWeight: 700, color: "var(--accent-hi)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 0.75rem", fontFamily: "var(--font-geist-mono), monospace" }}>
+              {s.n}
+            </div>
+            <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-1)", marginBottom: "0.25rem" }}>{s.title}</p>
+            <p style={{ fontSize: "0.75rem", color: "var(--text-3)", lineHeight: 1.5 }}>{s.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  /* ── Processing step ────────────────────────────────── */
+  if (step === "processing") return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+      <ProcessingIndicator name={userName} />
+    </div>
+  );
+
+  /* ── Results step ───────────────────────────────────── */
   return (
-    <main className="min-h-[calc(100vh-8rem)]">
-      {/* STEP 1: Form */}
-      {step === 'form' && (
-        <div 
-          key="form-step"
-          className="max-w-5xl mx-auto py-6"
-        >
-            {/* Hero Section */}
-            <div className="mb-12">
-              <div
-                className="glass-panel p-8 mb-8 overflow-hidden relative"
-              >
-                <div className="absolute top-0 right-0 w-64 h-64 bg-violet-600/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-                <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
-                
-                <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-purple-600">
-                  AI Reputation Lookup
-                </h1>
-                {/* Removed subtitle and feature tags for a cleaner UI */}
-              </div>
-            </div>
-            
-            {/* Form Section */}
-            <UserInputForm 
-              onSubmit={handleUserInput} 
-              disabled={submitDisabled} 
-              isAuthenticated={!!session}
-              connectedAccounts={[]} // TODO: Get actual connected accounts from session
-            />
-            
-            {/* OAuth Connect Section or Sign-in Prompt */}
-            {session ? (
-              <div className="mt-12">
-                <OAuthConnect />
-              </div>
-            ) : null}
+    <div style={{ maxWidth: 740, margin: "0 auto" }}>
+      {/* Results header */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1.5rem" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.375rem" }}>
+            <span className="badge">
+              {session ? "Connected analysis" : "Public analysis"}
+            </span>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>
+              {catCount} {catCount === 1 ? "category" : "categories"}
+            </span>
+          </div>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.03em" }}>
+            {userName || "Subject"}
+          </h1>
         </div>
-      )}
-      
-      {/* STEP 2: Processing */}
-      {step === 'processing' && (
-        <div 
-          key="processing-step"
-          className="py-10"
-        >
-            <ProcessingIndicator name={userName} />
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button onClick={reset} className="btn btn-ghost" style={{ fontSize: "0.8125rem" }}>
+            ← New analysis
+          </button>
+          <button onClick={handlePDF} disabled={loading} className="btn btn-primary" style={{ fontSize: "0.8125rem" }}>
+            Export PDF
+          </button>
         </div>
-      )}
-      
-      {/* STEP 3: Results */}
-      {step === 'results' && (
-        <div 
-          key="results-step"
-          className="max-w-5xl mx-auto py-8"
-        >
-            <div className="glass-panel p-6 mb-6 flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold mb-1">Reputation Analysis</h2>
-                <div className="flex items-center space-x-4">
-                  <p className="text-gray-400">{userName || "User"}</p>
-                  <div className="flex items-center text-sm">
-                    {session ? (
-                      <>
-                        <FaShieldAlt className="text-purple-400 mr-1" />
-                        <span className="text-purple-300">Connected Analysis</span>
-                      </>
-                    ) : (
-                      <>
-                        <FaGlobe className="text-green-400 mr-1" />
-                        <span className="text-green-300">Public Analysis</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={handleDownloadPDF}
-                className="flex items-center px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg"
-              >
-                <FaDownload className="mr-2" />
-                Download Report
-              </button>
-            </div>
-            
-            <div className="mb-8">
-              <div className="glass-panel p-6">
-                <h3 className="text-lg font-semibold mb-4">Summary</h3>
-                <div className="space-y-3">
-                  {Object.keys(analysisResults).length === 0 ? (
-                    <p className="text-gray-400 italic">No analysis results available yet.</p>
-                  ) : (
-                    // Show a consolidated overview summary
-                    <div className="text-gray-300">
-                      <p className="mb-3">
-                        Analysis completed using publicly available data across multiple platforms and sources to provide comprehensive reputation insights.
-                      </p>
-                      {Object.keys(analysisResults).length > 0 && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-400">
-                            Analysis covers {Object.keys(analysisResults).length} key areas of reputation assessment.
-                          </span>
-                          {!session && (
-                            <span className="text-blue-400 text-xs bg-blue-900/20 px-2 py-1 rounded">
-                              Sign in for deeper analysis
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            <div ref={reportRef} className="space-y-6">
-              {Object.entries(analysisResults).map(([categoryName, categoryData]: [string, any]) => (
-                <section 
-                  key={categoryName}
-                  className="glass-panel p-6"
-                >
-                  <h3 className="text-xl font-bold mb-4 flex items-center">
-                    <span className="mr-2 text-2xl">{CATEGORY_ICONS[categoryName] || <FaInfoCircle className="text-blue-400" />}</span>
-                    {CATEGORY_LABELS[categoryName] || categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}
-                  </h3>
-                  
-                  {/* Score Display */}
-                  {categoryData?.score && (
-                    <div className="mb-4 flex items-center">
-                      <span className="text-sm text-gray-400 mr-3">Score:</span>
-                      <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        categoryData.score >= 80 ? 'bg-green-900/50 text-green-300' :
-                        categoryData.score >= 60 ? 'bg-yellow-900/50 text-yellow-300' :
-                        'bg-red-900/50 text-red-300'
-                      }`}>
-                        {categoryData.score}/100
-                      </div>
-                    </div>
-                  )}
+      </div>
 
-                  {/* Detailed Narrative Analysis */}
-                  {categoryData?.narrative ? (
-                    <div className="mb-6">
-                      <div className="prose prose-invert max-w-none">
-                        <div 
-                          className="text-gray-300 leading-relaxed"
-                          dangerouslySetInnerHTML={{ 
-                            __html: categoryData.narrative
-                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-                              .replace(/## (.*?)$/gm, '<h3 class="text-xl font-semibold text-cyan-300 mb-3 mt-6">$1</h3>')
-                              .replace(/\n/g, '<br/>')
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mb-4 text-gray-300">
-                      {categoryData?.summary || "No analysis available for this category."}
-                    </div>
-                  )}
-                  
-                  {/* Show platforms analyzed for this category */}
-                  {categoryData?.platforms && categoryData.platforms.length > 0 && (
-                    <div className="mb-4 text-sm text-gray-500">
-                      <span className="font-medium">Sources analyzed:</span> {categoryData.platforms.join(', ')}
-                    </div>
-                  )}
-
-                  {/* Evidence with Sources */}
-                  {categoryData?.evidenceWithSources && categoryData.evidenceWithSources.length > 0 && (
-                    <details className="mt-4 mb-6">
-                      <summary className="cursor-pointer text-blue-400 font-medium flex items-center">
-                        <FaInfoCircle className="inline mr-2" />
-                        View Evidence ({categoryData.evidenceWithSources.length} items)
-                      </summary>
-                      <div className="mt-3 space-y-3 pl-4 border-l-2 border-blue-900/50">
-                        {categoryData.evidenceWithSources.slice(0, 5).map((evidence: any, i: number) => (
-                          <div key={i} className="bg-slate-900/30 border border-slate-700/50 p-4 rounded-lg">
-                            <blockquote className="text-gray-300 italic mb-3 pl-3 border-l-2 border-blue-500">
-                              {evidence.quote}
-                            </blockquote>
-                            <div className="text-xs text-gray-400 grid grid-cols-2 gap-2">
-                              <div><span className="font-medium">Platform:</span> {evidence.platform}</div>
-                              <div><span className="font-medium">Date:</span> {evidence.date}</div>
-                              <div><span className="font-medium">Author:</span> {evidence.author}</div>
-                              {evidence.url && evidence.url !== '#' && (
-                                <div className="col-span-2">
-                                  <span className="font-medium">Source:</span>{" "}
-                                  <a 
-                                    href={evidence.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="text-blue-400 hover:underline break-all"
-                                  >
-                                    View Original
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                  
-                  {Array.isArray(categoryData?.flaggedContent) && categoryData.flaggedContent.length > 0 && (
-                    <details className="mt-4 mb-6">
-                      <summary className="cursor-pointer text-amber-400 font-medium flex items-center">
-                        <MdDangerous className="inline mr-2" />
-                        {categoryData.flaggedContent.length} Flagged Items
-                      </summary>
-                      <ul className="mt-2 space-y-4 pl-4 border-l-2 border-amber-900/50">
-                        {categoryData.flaggedContent.map((item: any, i: number) => (
-                          <li key={i} className="bg-amber-900/10 border border-amber-800/30 p-4 rounded-lg">
-                            <div className="font-medium text-amber-300 mb-2">{item.reason || "Flagged content"}</div>
-                            <blockquote className="text-gray-300 italic mb-3 pl-3 border-l-2 border-gray-600">
-                              {item.content || item.excerpt}
-                            </blockquote>
-                            <div className="text-xs text-gray-400 space-y-1">
-                              <div><span className="font-medium">Platform:</span> {item.platform}</div>
-                              <div><span className="font-medium">Date:</span> {item.date}</div>
-                              <div><span className="font-medium">Author:</span> {item.author}</div>
-                              {item.url && item.url !== '#' && (
-                                <div>
-                                  <span className="font-medium">Source:</span>{" "}
-                                  <a 
-                                    href={item.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="text-blue-400 hover:underline break-all"
-                                  >
-                                    View Original
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  )}
-
-                  {/* Legacy flagged items support */}
-                  {Array.isArray(categoryData?.flagged) && categoryData.flagged.length > 0 && !(categoryData?.flaggedContent?.length > 0) && (
-                    <details className="mt-4 mb-6">
-                      <summary className="cursor-pointer text-amber-400 font-medium flex items-center">
-                        <MdDangerous className="inline mr-2" />
-                        {categoryData.flagged.length} Flagged Items (Legacy)
-                      </summary>
-                      <ul className="mt-2 space-y-4 pl-4 border-l-2 border-amber-900/50">
-                        {categoryData.flagged.map((item: unknown, i: number) => {
-                          const flaggedItem = item as { 
-                            reason?: string; 
-                            content?: string; 
-                            platform?: string; 
-                            date?: string; 
-                            url?: string; 
-                            severity?: string;
-                          };
-                          return (
-                          <li key={i} className="bg-amber-900/10 border border-amber-800/30 p-4 rounded-lg">
-                            <div className="font-medium text-amber-300 mb-2">{flaggedItem.reason || "Flagged content"}</div>
-                            <blockquote className="text-gray-300 italic mb-3 pl-3 border-l-2 border-gray-600">
-                              &ldquo;{flaggedItem.content || String(item)}&rdquo;
-                            </blockquote>
-                            <div className="text-xs text-gray-400 space-y-1">
-                              {flaggedItem.platform && (
-                                <div><span className="font-medium">Platform:</span> {flaggedItem.platform}</div>
-                              )}
-                              {flaggedItem.date && (
-                                <div><span className="font-medium">Date:</span> {new Date(flaggedItem.date).toLocaleDateString()}</div>
-                              )}
-                              {flaggedItem.url && (
-                                <div>
-                                  <span className="font-medium">Source:</span>{" "}
-                                  <a 
-                                    href={flaggedItem.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="text-blue-400 hover:underline break-all"
-                                  >
-                                    {flaggedItem.url}
-                                  </a>
-                                </div>
-                              )}
-                              {flaggedItem.severity && (
-                                <div>
-                                  <span className="font-medium">Severity:</span>{" "}
-                                  <span className={`px-2 py-1 rounded text-xs ${
-                                    flaggedItem.severity === 'high' ? 'bg-red-900/50 text-red-300' :
-                                    flaggedItem.severity === 'medium' ? 'bg-yellow-900/50 text-yellow-300' :
-                                    'bg-green-900/50 text-green-300'
-                                  }`}>
-                                    {flaggedItem.severity.toUpperCase()}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                          );
-                        })}
-                      </ul>
-                    </details>
-                  )}
-                </section>
-              ))}
+      {/* Results table */}
+      <div ref={reportRef} className="card" style={{ overflow: "hidden" }}>
+        {catCount === 0 ? (
+          <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-3)", fontSize: "0.875rem" }}>
+            No results yet.
+          </div>
+        ) : (
+          <div>
+            {/* Table head */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.625rem 1.25rem", borderBottom: "1px solid var(--border)", background: "var(--surface-2)" }}>
+              <span style={{ flex: 1, fontSize: "0.7rem", fontWeight: 600, color: "var(--text-3)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Category</span>
+              <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-3)", letterSpacing: "0.06em", textTransform: "uppercase", marginRight: "1.5rem" }}>Score</span>
             </div>
-            
-            {/* Bottom Home Button */}
-            <div className="flex justify-center mt-12">
-              <button
-                onClick={() => {
-                  setStep('form');
-                  setAnalysisResults({});
-                  setUserName('');
-                  setCurrentUserId('');
-                  setLoading(false);
-                  setSubmitDisabled(false);
-                }}
-                className="group flex items-center px-8 py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 text-white font-semibold text-lg rounded-xl shadow-2xl shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 transform hover:scale-105 border border-emerald-500/30"
-              >
-                <svg 
-                  className="w-6 h-6 mr-3 transition-transform duration-300 group-hover:rotate-12" 
-                  fill="currentColor" 
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-                </svg>
-                <span className="bg-gradient-to-r from-white to-gray-100 bg-clip-text text-transparent font-bold">
-                  🏠 Start New Analysis
-                </span>
-              </button>
-            </div>
+            {Object.entries(results).map(([key, val]) => (
+              <CategoryRow key={key} name={key} data={val as Record<string, unknown>} />
+            ))}
           </div>
         )}
-    </main>
+      </div>
+
+      {!session && (
+        <div style={{ marginTop: "1rem", padding: "0.875rem 1.25rem", borderRadius: "var(--radius)", border: "1px solid rgba(139,92,246,0.2)", background: "rgba(139,92,246,0.06)", fontSize: "0.8125rem", color: "var(--accent-hi)" }}>
+          Sign in to enable first-party social data for deeper insights →
+        </div>
+      )}
+    </div>
   );
 }

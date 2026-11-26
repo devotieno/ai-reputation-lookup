@@ -5,43 +5,51 @@ import { useParams } from "next/navigation";
 import { doc, getDoc, query, collection, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
-import { 
-  FiChevronDown, 
-  FiChevronUp, 
-  FiFlag, 
-  FiExternalLink, 
-  FiArrowLeft 
-} from "react-icons/fi";
 
-// Interfaces for report data structure
-interface FlaggedItem {
-  content: string;
-  reason: string;
-  severity: "low" | "medium" | "high";
-  url: string;
-  date?: string;
-}
+interface FlaggedItem { content: string; reason: string; severity: "low"|"medium"|"high"; url: string; date?: string; }
+interface Category { name: string; summary: string; flaggedContent: FlaggedItem[]; }
+interface Quote { content: string; url: string; date: string; }
+interface Report { id: string; name: string; createdAt: string; summaries: string[]; toxicityScore: number; quotes: Quote[]; categories: Category[]; }
 
-interface CategoryDetail {
-  name: string;
-  summary: string;
-  flaggedContent: FlaggedItem[];
-}
-
-interface Quote {
-  content: string;
-  url: string;
-  date: string;
-}
-
-interface Report {
-  id: string;
-  name: string;
-  createdAt: string;
-  summaries: string[];
-  toxicityScore: number;
-  quotes: Quote[];
-  categories: CategoryDetail[];
+function CategoryRow({ cat }: { cat: Category }) {
+  const [open, setOpen] = useState(false);
+  const hasFlagged = cat.flaggedContent?.length > 0;
+  return (
+    <div style={{ borderBottom: "1px solid var(--border)" }}>
+      <button
+        onClick={() => setOpen((p) => !p)}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.875rem 1.25rem", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.025)")}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "none")}
+      >
+        <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: 500, color: "var(--text-1)" }}>{cat.name}</span>
+        {hasFlagged && <span className="badge badge-amber" style={{ fontSize: "0.65rem" }}>{cat.flaggedContent.length} flagged</span>}
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{ padding: "0 1.25rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+          <p style={{ fontSize: "0.8125rem", color: "var(--text-2)", lineHeight: 1.7, padding: "1rem 0" }}>{cat.summary}</p>
+          {hasFlagged && cat.flaggedContent.map((item, i) => (
+            <div key={i} className="inset" style={{ padding: "0.75rem", marginBottom: "0.5rem", borderColor: "rgba(245,158,11,0.2)" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+                <span style={{ color: item.severity === "high" ? "#f87171" : item.severity === "medium" ? "#fbbf24" : "#4ade80", fontSize: "0.7rem", fontWeight: 700, flexShrink: 0, marginTop: "0.1rem" }}>
+                  {item.severity.toUpperCase()}
+                </span>
+                <p style={{ fontSize: "0.8125rem", color: "var(--text-2)", margin: 0, lineHeight: 1.5 }}>{item.content}</p>
+              </div>
+              {item.reason && <p style={{ fontSize: "0.75rem", color: "var(--text-3)", margin: "0.375rem 0 0" }}>{item.reason}</p>}
+              <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.375rem", fontSize: "0.7rem", color: "var(--text-3)" }}>
+                {item.date && <span>{new Date(item.date).toLocaleDateString()}</span>}
+                {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-hi)" }}>View ↗</a>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ReportPage() {
@@ -49,305 +57,134 @@ export default function ReportPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  
+
   useEffect(() => {
-    const fetchReport = async () => {
+    (async () => {
       try {
-        if (!id) {
-          throw new Error("Report ID not provided");
-        }
-        
-        // Try to get the report from both collections
-        console.log(`Attempting to fetch report with ID: ${id}`);
-        
-        // First try "reports" collection
-        let reportRef = doc(db, "reports", id as string);
-        let reportSnapshot = await getDoc(reportRef);
-        
-        // If not found in reports, try analysisResults
-        if (!reportSnapshot.exists()) {
-          console.log("Report not found in 'reports' collection, checking 'analysisResults'");
-          
-          // For analysisResults, we need to find by jobId rather than document ID
+        if (!id) throw new Error("No report ID");
+        let snap = await getDoc(doc(db, "reports", id as string));
+        if (!snap.exists()) {
           const q = query(collection(db, "analysisResults"), where("jobId", "==", id));
-          const resultsSnapshot = await getDocs(q);
-          
-          if (resultsSnapshot.empty) {
-            console.log("No matching analysis results found with jobId:", id);
-            
-            // As a last resort, try to match by exact document ID
-            reportRef = doc(db, "analysisResults", id as string);
-            reportSnapshot = await getDoc(reportRef);
-            
-            if (!reportSnapshot.exists()) {
-              console.log("No results found by document ID either");
-              throw new Error("Report not found");
-            }
-          } else {
-            // Use the first matching result
-            console.log(`Found ${resultsSnapshot.size} analysis results`);
-            reportSnapshot = resultsSnapshot.docs[0];
-          }
+          const qs = await getDocs(q);
+          if (qs.empty) { snap = await getDoc(doc(db, "analysisResults", id as string)); if (!snap.exists()) throw new Error("Report not found"); }
+          else snap = qs.docs[0];
         }
-        
-        const data = reportSnapshot.data();
-        console.log("Found report data:", data);
-        
-        if (!data) {
-          throw new Error("Report data is undefined");
-        }
-        
-        // Transform the data to match the Report interface
-        const rawData = data;
-        const analysisData = rawData.analysis || rawData;
-        
-        // Create a properly formatted report object
-        const reportData: Report = {
-          id: reportSnapshot.id,
-          name: rawData.name || "Unknown",
-          createdAt: rawData.createdAt || new Date().toISOString(),
-          summaries: analysisData.summaries || [],
-          toxicityScore: analysisData.toxicityScore || 0,
-          quotes: analysisData.quotes || [],
-          categories: []
+        const raw = snap.data()!;
+        const a = raw.analysis || raw;
+        const r: Report = {
+          id: snap.id, name: raw.name || "Unknown", createdAt: raw.createdAt || new Date().toISOString(),
+          summaries: a.summaries || [], toxicityScore: a.toxicityScore || 0, quotes: a.quotes || [], categories: [],
         };
-        
-        // Transform categories from object to array format
-        if (analysisData.categories) {
-          reportData.categories = Object.entries(analysisData.categories).map(([key, value]: [string, any]) => ({
-            name: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize category name
-            summary: typeof value.summary === 'string' ? value.summary : "No summary available",
-            flaggedContent: Array.isArray(value.flagged) ? value.flagged.map((item: any) => ({
-              content: typeof item === 'string' ? item : (item?.content || "Flagged content"),
-              reason: item?.reason || "Content flagged for review",
-              severity: (item?.severity === "low" || item?.severity === "medium" || item?.severity === "high") 
-                ? item.severity 
-                : "medium" as const,
-              url: item?.url || "",
-              date: item?.date || undefined
-            })) : []
-          }));
+        if (a.categories) {
+          r.categories = Object.entries(a.categories).map(([k, v]: [string, unknown]) => {
+            const val = v as Record<string, unknown>;
+            return {
+              name: k.charAt(0).toUpperCase() + k.slice(1),
+              summary: typeof val.summary === "string" ? val.summary : "",
+              flaggedContent: Array.isArray(val.flagged) ? val.flagged.map((item: unknown) => {
+                const fi = item as Record<string, unknown>;
+                return { content: typeof fi === "string" ? fi : String(fi?.content ?? ""), reason: String(fi?.reason ?? ""), severity: (["low","medium","high"].includes(fi?.severity as string) ? fi.severity : "medium") as "low"|"medium"|"high", url: String(fi?.url ?? ""), date: fi?.date ? String(fi.date) : undefined };
+              }) : [],
+            };
+          });
         }
-        
-        console.log("Transformed report data:", reportData);
-        setReport(reportData);
-      } catch (err) {
-        console.error("Error fetching report:", err);
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchReport();
+        setReport(r);
+      } catch (e) { setError(e instanceof Error ? e.message : "Error loading report"); }
+      finally { setLoading(false); }
+    })();
   }, [id]);
-  
-  const toggleCategory = (categoryName: string) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [categoryName]: !prev[categoryName]
-    }));
-  };
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-lg text-gray-700">Loading report...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (error || !report) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8 text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900">Error</h2>
-          <p className="mt-2 text-red-600">{error || "Failed to load report"}</p>
-          <div className="mt-6">
-            <Link href="/" className="text-blue-600 hover:text-blue-800 font-medium flex items-center justify-center">
-              <FiArrowLeft className="mr-2" /> Back to Home
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
+
+  if (loading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "40vh" }}>
+      <svg style={{ animation: "spin 1s linear infinite", color: "var(--accent)" }} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+      </svg>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  if (error || !report) return (
+    <div style={{ maxWidth: 360, margin: "4rem auto", textAlign: "center" }}>
+      <p style={{ color: "#f87171", marginBottom: "1rem", fontSize: "0.875rem" }}>{error || "Report not found."}</p>
+      <Link href="/" className="btn btn-ghost">← Home</Link>
+    </div>
+  );
+
+  const pct = Math.round(report.toxicityScore * 100);
+  const riskColor = report.toxicityScore < 0.3 ? "#4ade80" : report.toxicityScore < 0.6 ? "#fbbf24" : "#f87171";
+  const riskLabel = report.toxicityScore < 0.3 ? "Low risk" : report.toxicityScore < 0.6 ? "Moderate risk" : "High risk";
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center">
-            <Link href="/" className="mr-4 text-blue-600 hover:text-blue-800">
-              <FiArrowLeft size={20} />
-            </Link>
-            <h1 className="text-3xl font-bold text-gray-900">AI Reputation Report</h1>
-          </div>
-          <p className="mt-1 text-sm text-gray-600">
-            Generated on {new Date(report.createdAt).toLocaleDateString()} for {report.name}
+    <div style={{ maxWidth: 680, margin: "0 auto" }}>
+      {/* Back */}
+      <Link href="/" className="btn btn-ghost" style={{ padding: "0.3rem 0.625rem", fontSize: "0.8rem", marginBottom: "1.5rem", display: "inline-flex" }}>
+        ← Home
+      </Link>
+
+      {/* Header */}
+      <div style={{ marginBottom: "1.5rem", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+        <div>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.03em" }}>{report.name}</h1>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-3)", marginTop: "0.25rem" }}>
+            {new Date(report.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
-      </header>
+        <button onClick={() => window.print()} className="btn btn-ghost" style={{ fontSize: "0.8rem" }}>Print</button>
+      </div>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Overall Summary Section */}
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
-            <div className="px-4 py-5 sm:px-6">
-              <h2 className="text-lg font-medium text-gray-900">Overall Summary</h2>
-              <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                Comprehensive analysis of online presence and reputation
-              </p>
-            </div>
-            <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
-              {report.summaries && report.summaries.map((summary, index) => (
-                <p key={index} className="text-gray-700 mb-3">
-                  {summary}
-                </p>
-              ))}
-              
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-700">Reputation Risk Level</h3>
-                <div className="mt-2 flex items-center">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div 
-                      className={`h-2.5 rounded-full ${
-                        report.toxicityScore < 0.3 
-                          ? 'bg-green-500' 
-                          : report.toxicityScore < 0.6 
-                            ? 'bg-yellow-500' 
-                            : 'bg-red-500'
-                      }`} 
-                      style={{ width: `${report.toxicityScore * 100}%` }}
-                    ></div>
-                  </div>
-                  <span className="ml-2 text-sm font-medium text-gray-700">
-                    {Math.round(report.toxicityScore * 100)}%
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  {report.toxicityScore < 0.3 
-                    ? 'Low risk - Content appears generally safe and appropriate' 
-                    : report.toxicityScore < 0.6 
-                      ? 'Moderate risk - Some content may be problematic' 
-                      : 'High risk - Significant problematic content detected'}
-                </p>
-              </div>
-            </div>
+      {/* Summary */}
+      <div className="card" style={{ padding: "1.25rem", marginBottom: "1rem" }}>
+        {report.summaries.map((s, i) => (
+          <p key={i} style={{ fontSize: "0.875rem", color: "var(--text-2)", lineHeight: 1.7, margin: i > 0 ? "0.75rem 0 0" : 0 }}>{s}</p>
+        ))}
+        <div style={{ marginTop: "1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>Risk level</span>
+            <span style={{ fontSize: "0.75rem", fontWeight: 600, color: riskColor, fontFamily: "var(--font-geist-mono), monospace" }}>
+              {riskLabel} · {pct}%
+            </span>
           </div>
-          
-          {/* Category Reports */}
-          <div className="space-y-6">
-            {report.categories && report.categories.map((category) => (
-              <div key={category.name} className="bg-white shadow overflow-hidden sm:rounded-lg">
-                <div 
-                  className="px-4 py-5 sm:px-6 flex justify-between items-center cursor-pointer"
-                  onClick={() => toggleCategory(category.name)}
-                >
-                  <h3 className="text-lg font-medium text-gray-900">{category.name}</h3>
-                  {expandedCategories[category.name] ? <FiChevronUp /> : <FiChevronDown />}
-                </div>
-                
-                {expandedCategories[category.name] && (
-                  <div className="border-t border-gray-200">
-                    <div className="px-4 py-5 sm:px-6">
-                      <p className="text-gray-700">{category.summary}</p>
-                      
-                      {category.flaggedContent && category.flaggedContent.length > 0 && (
-                        <div className="mt-6">
-                          <h4 className="text-sm font-medium text-gray-700 mb-4">Notable Content</h4>
-                          <div className="space-y-4">
-                            {category.flaggedContent.map((item, idx) => (
-                              <div key={idx} className="border rounded-md p-4 bg-gray-50">
-                                <div className="flex items-start">
-                                  <FiFlag className={`mr-2 mt-1 ${
-                                    item.severity === 'high' ? 'text-red-500' : 
-                                    item.severity === 'medium' ? 'text-yellow-500' : 'text-blue-500'
-                                  }`} />
-                                  <div>
-                                    <p className="text-gray-800">{item.content}</p>
-                                    <div className="mt-2 text-sm text-gray-500 flex justify-between items-center">
-                                      <span>{item.reason}</span>
-                                      {item.date && <span>{new Date(item.date).toLocaleDateString()}</span>}
-                                    </div>
-                                    {item.url && (
-                                      <a 
-                                        href={item.url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                                      >
-                                        Source <FiExternalLink className="ml-1" />
-                                      </a>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          
-          {/* Direct Quotes Section */}
-          {report.quotes && report.quotes.length > 0 && (
-            <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
-              <div className="px-4 py-5 sm:px-6">
-                <h2 className="text-lg font-medium text-gray-900">Source Quotes</h2>
-                <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                  Direct quotes from across platforms
-                </p>
-              </div>
-              <div className="border-t border-gray-200">
-                <ul className="divide-y divide-gray-200">
-                  {report.quotes.slice(0, 10).map((quote, idx) => (
-                    <li key={idx} className="px-4 py-4 sm:px-6">
-                      <p className="text-gray-800">&ldquo;{quote.content}&rdquo;</p>
-                      <div className="mt-2 flex justify-between text-sm text-gray-500">
-                        <span>{new Date(quote.date).toLocaleDateString()}</span>
-                        {quote.url && (
-                          <a 
-                            href={quote.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 flex items-center"
-                          >
-                            Source <FiExternalLink className="ml-1" />
-                          </a>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
-          
-          <div className="mt-8 flex flex-col sm:flex-row sm:justify-center gap-4">
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-            >
-              New Lookup
-            </Link>
-            <button
-              onClick={() => window.print()}
-              className="inline-flex items-center justify-center px-5 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              Print Report
-            </button>
+          <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: riskColor, borderRadius: 99, transition: "width 0.6s ease" }} />
           </div>
         </div>
-      </main>
+      </div>
+
+      {/* Categories */}
+      {report.categories.length > 0 && (
+        <div className="card" style={{ overflow: "hidden", marginBottom: "1rem" }}>
+          <div style={{ padding: "0.625rem 1.25rem", borderBottom: "1px solid var(--border)", background: "var(--surface-2)" }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-3)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Categories
+            </span>
+          </div>
+          {report.categories.map((cat) => <CategoryRow key={cat.name} cat={cat} />)}
+        </div>
+      )}
+
+      {/* Quotes */}
+      {report.quotes.length > 0 && (
+        <div className="card" style={{ overflow: "hidden" }}>
+          <div style={{ padding: "0.625rem 1.25rem", borderBottom: "1px solid var(--border)", background: "var(--surface-2)" }}>
+            <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-3)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              Source quotes
+            </span>
+          </div>
+          {report.quotes.slice(0, 10).map((q, i) => (
+            <div key={i} style={{ padding: "1rem 1.25rem", borderBottom: i < 9 ? "1px solid var(--border)" : "none" }}>
+              <p style={{ fontSize: "0.8125rem", color: "var(--text-2)", fontStyle: "italic", margin: "0 0 0.5rem" }}>&ldquo;{q.content}&rdquo;</p>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "var(--text-3)" }}>
+                <span>{new Date(q.date).toLocaleDateString()}</span>
+                {q.url && <a href={q.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-hi)" }}>Source ↗</a>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ textAlign: "center", marginTop: "2rem" }}>
+        <Link href="/" className="btn btn-primary">← New analysis</Link>
+      </div>
     </div>
   );
 }

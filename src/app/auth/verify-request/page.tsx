@@ -1,32 +1,23 @@
 "use client";
 
-import { FiMail } from "react-icons/fi";
 import Link from "next/link";
 
 export default function VerifyRequest() {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center">
-          <FiMail className="mx-auto h-12 w-12 text-blue-500" />
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Check your email
-          </h2>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 9rem)", padding: "2rem 1rem" }}>
+      <div className="card" style={{ padding: "2rem", width: "100%", maxWidth: 360, textAlign: "center" }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-hi)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+          </svg>
         </div>
-
-        <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <div className="text-center">
-            <p className="text-sm text-gray-600 mb-4">
-              A sign in link has been sent to your email address.
-            </p>
-            <p className="text-sm text-gray-600 mb-6">
-              Please check your email (including spam folder) for the verification link.
-            </p>
-            <Link href="/auth/signin" className="text-blue-600 hover:text-blue-800 font-medium">
-              Return to sign in
-            </Link>
-          </div>
-        </div>
+        <h2 style={{ fontSize: "1.125rem", fontWeight: 700, marginBottom: "0.375rem" }}>Check your email</h2>
+        <p style={{ fontSize: "0.8125rem", color: "var(--text-3)", lineHeight: 1.6, marginBottom: "1.5rem" }}>
+          A sign-in link has been sent. Check your inbox and spam folder.
+        </p>
+        <Link href="/auth/signin" style={{ fontSize: "0.8125rem", color: "var(--accent-hi)", textDecoration: "none" }}>
+          ← Back to sign in
+        </Link>
       </div>
     </div>
   );

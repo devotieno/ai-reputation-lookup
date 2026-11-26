@@ -1,78 +1,51 @@
 "use client";
 
 import React from "react";
-import { FaTwitter, FaLinkedin, FaReddit, FaYoutube, FaInstagram, FaLock } from "react-icons/fa";
-import { motion } from "framer-motion";
 
-const OAuthConnect: React.FC = () => {
-  const socialButtons = [
-    { 
-      name: "LinkedIn", 
-      href: "/api/auth/linkedin/start", 
-      icon: <FaLinkedin size={20} />, 
-      bgColor: "bg-gradient-to-br from-blue-700 to-blue-500",
-      hoverEffect: "hover:shadow-blue-600/30" 
-    },
-    { 
-      name: "Twitter", 
-      href: "/api/auth/twitter/start", 
-      icon: <FaTwitter size={20} />, 
-      bgColor: "bg-gradient-to-br from-sky-600 to-blue-400",
-      hoverEffect: "hover:shadow-blue-400/30" 
-    },
-    { 
-      name: "Reddit", 
-      href: "/api/auth/reddit/start", 
-      icon: <FaReddit size={20} />, 
-      bgColor: "bg-gradient-to-br from-orange-700 to-orange-500",
-      hoverEffect: "hover:shadow-orange-500/30" 
-    },
-    { 
-      name: "YouTube", 
-      href: "/api/auth/youtube/start", 
-      icon: <FaYoutube size={20} />, 
-      bgColor: "bg-gradient-to-br from-red-700 to-red-500",
-      hoverEffect: "hover:shadow-red-500/30" 
-    },
-    { 
-      name: "Instagram", 
-      href: "/api/auth/instagram/start", 
-      icon: <FaInstagram size={20} />, 
-      bgColor: "bg-gradient-to-br from-pink-600 to-purple-500",
-      hoverEffect: "hover:shadow-purple-500/30" 
-    },
-  ];
+const PLATFORMS = [
+  { name: "LinkedIn",   href: "/api/auth/linkedin/start",  color: "#0a66c2" },
+  { name: "X (Twitter)",href: "/api/auth/twitter/start",   color: "#e7e7e7" },
+  { name: "Reddit",     href: "/api/auth/reddit/start",    color: "#ff4500" },
+  { name: "YouTube",    href: "/api/auth/youtube/start",   color: "#ff0000" },
+  { name: "Instagram",  href: "/api/auth/instagram/start", color: "#e1306c" },
+];
 
+export default function OAuthConnect() {
   return (
-    <div className="glass-panel p-6 max-w-lg mx-auto">
-      <div className="flex items-center justify-center mb-6">
-        <FaLock className="text-violet-400 mr-2" />
-        <h3 className="text-xl font-medium text-center gradient-text">
-          Connect Social Accounts
-        </h3>
+    <div
+      style={{
+        marginTop: "0.75rem",
+        padding: "1.125rem 1.5rem",
+        borderRadius: "var(--radius-lg)",
+        border: "1px solid var(--border)",
+        background: "var(--surface)",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "1rem",
+      }}
+    >
+      <div style={{ flex: "1 1 200px" }}>
+        <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-1)", margin: 0 }}>
+          Connect accounts for deeper analysis
+        </p>
+        <p style={{ fontSize: "0.75rem", color: "var(--text-3)", margin: "0.25rem 0 0" }}>
+          Read-only. Credentials never stored.
+        </p>
       </div>
-      
-      <p className="text-sm text-gray-300 text-center mb-6">
-        Securely connect your accounts to enable more comprehensive analysis. 
-        Your credentials are never stored.
-      </p>
-      
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {socialButtons.map((social) => (
-          <motion.a
-            key={social.name}
-            href={social.href}
-            whileHover={{ scale: 1.05, y: -3 }}
-            whileTap={{ scale: 0.97 }}
-            className={`flex flex-col items-center justify-center py-4 px-3 rounded-lg ${social.bgColor} shadow-lg ${social.hoverEffect} hover:shadow-lg transition-all duration-200`}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+        {PLATFORMS.map((p) => (
+          <a
+            key={p.name}
+            href={p.href}
+            className="btn btn-ghost"
+            style={{ fontSize: "0.75rem", padding: "0.375rem 0.75rem", gap: "0.375rem" }}
           >
-            <span className="text-white mb-2">{social.icon}</span>
-            <span className="text-sm text-white font-medium">{social.name}</span>
-          </motion.a>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: p.color, flexShrink: 0, display: "inline-block" }} />
+            {p.name}
+          </a>
         ))}
       </div>
     </div>
   );
-};
-
-export default OAuthConnect;
+}
