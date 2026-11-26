@@ -5,6 +5,7 @@ import ProcessingIndicator from "../components/ProcessingIndicatorSimple";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { JSX } from "react";
 import * as apiClient from "@/utils/api";
+import { DEMO_RESULTS } from "@/lib/demoData";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -229,14 +230,19 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<"form" | "processing" | "results">("form");
   const [userName, setUserName] = useState("");
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [submitDisabled, setSubmitDisabled] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const pollRef   = useRef<NodeJS.Timeout | null>(null);
+  const demoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const catCount = useMemo(() => Object.keys(results).length, [results]);
 
-  useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
+  useEffect(() => () => {
+    if (pollRef.current) clearTimeout(pollRef.current);
+    if (demoTimeoutRef.current) clearTimeout(demoTimeoutRef.current);
+  }, []);
 
   const pollForResults = useCallback(async (userId: string) => {
     if (isPolling) return;
@@ -280,6 +286,7 @@ export default function HomePage() {
   const handleSubmit = useCallback(async (data: UserInput) => {
     if (loading || submitDisabled) return;
     setSubmitDisabled(true); setLoading(true);
+    setIsDemoMode(false);
     setResults({}); setStep("processing"); setUserName(data.name);
     try {
       const { userId } = await apiClient.submitUserInput(data);
@@ -290,6 +297,23 @@ export default function HomePage() {
       alert("Error submitting request. Please try again.");
     }
   }, [loading, submitDisabled, pollForResults]);
+
+  const handleDemo = useCallback(() => {
+    if (loading || submitDisabled) return;
+    setLoading(true);
+    setSubmitDisabled(true);
+    setResults({});
+    setUserName("Alex Jordan");
+    setIsDemoMode(true);
+    setStep("processing");
+    demoTimeoutRef.current = setTimeout(() => {
+      setResults(DEMO_RESULTS);
+      setLoading(false);
+      setSubmitDisabled(false);
+      setStep("results");
+      demoTimeoutRef.current = null;
+    }, 2000);
+  }, [loading, submitDisabled]);
 
   const handlePDF = useCallback(async () => {
     if (!reportRef.current) return;
@@ -308,8 +332,9 @@ export default function HomePage() {
 
   const reset = useCallback(() => {
     if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
+    if (demoTimeoutRef.current) { clearTimeout(demoTimeoutRef.current); demoTimeoutRef.current = null; }
     setIsPolling(false); setLoading(false); setStep("form");
-    setSubmitDisabled(false); setResults({}); setUserName("");
+    setSubmitDisabled(false); setResults({}); setUserName(""); setIsDemoMode(false);
   }, []);
 
   /* ── Form step ──────────────────────────────────────── */
@@ -330,6 +355,15 @@ export default function HomePage() {
         <p style={{ fontSize: "1rem", color: "var(--text-2)", maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
           Enter a name and social handles. Our AI scans public sources to build a comprehensive reputation report in minutes.
         </p>
+        <button
+          type="button"
+          onClick={handleDemo}
+          disabled={loading}
+          className="btn btn-ghost"
+          style={{ marginTop: "1.25rem", fontSize: "0.875rem" }}
+        >
+          Try Demo →
+        </button>
       </div>
 
       {/* Form */}
@@ -374,6 +408,11 @@ export default function HomePage() {
             <span className="badge">
               Public analysis
             </span>
+            {isDemoMode && (
+              <span className="badge badge-amber">
+                Demo · Sample data
+              </span>
+            )}
             <span style={{ fontSize: "0.75rem", color: "var(--text-3)" }}>
               {catCount} {catCount === 1 ? "category" : "categories"}
             </span>
@@ -383,6 +422,11 @@ export default function HomePage() {
           </h1>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
+          {isDemoMode && (
+            <button onClick={reset} className="btn btn-ghost" style={{ fontSize: "0.8125rem" }}>
+              Try with real data →
+            </button>
+          )}
           <button onClick={reset} className="btn btn-ghost" style={{ fontSize: "0.8125rem" }}>
             ← New analysis
           </button>
